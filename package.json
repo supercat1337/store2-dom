@@ -1,0 +1,68 @@
+{
+    "name": "@supercat1337/store2-dom",
+    "version": "1.0.0",
+    "description": "DOM binding utilities for @supercat1337/store2 – reactive atoms, collections, and computed values",
+    "main": "dist/store2-dom.esm.js",
+    "types": "dist/types.d.ts",
+    "scripts": {
+        "test": "c8 ava",
+        "clean": "shx rm -rf ./dist && shx mkdir ./dist",
+        "build_esm": "rollup ./src/index.js --file ./dist/store2-dom.esm.js --format es",
+        "gen_types": "npx tsc --project my.tsconfig.types.json",
+        "bundle_types": "node scripts/bundle-types.js",
+        "build": "npm run clean && npm run build_esm && npm run gen_types && npm run bundle_types && shx rm -rf dist/types-temp",
+        "lint": "eslint src/ tests/ scripts/",
+        "lint_fix": "npm run lint -- --fix"
+    },
+    "keywords": [
+        "reactive",
+        "state",
+        "store",
+        "binding",
+        "dom",
+        "two-way-binding",
+        "atom",
+        "collection",
+        "computed",
+        "signals",
+        "supercat1337"
+    ],
+    "author": "Albert Bazaleev",
+    "license": "MIT",
+    "type": "module",
+    "moduleResolution": "nodenext",
+    "devDependencies": {
+        "@rollup/plugin-node-resolve": "^16.0.3",
+        "@supercat1337/store2": "^2.0.6",
+        "ava": "^7.0.0",
+        "c8": "^11.0.0",
+        "eslint-plugin-jsdoc": "^63.0.2",
+        "globals": "^17.6.0",
+        "jsdom": "^29.1.1",
+        "rollup": "^4.60.1",
+        "shx": "^0.4.0",
+        "typedoc": "^0.28.20",
+        "typedoc-plugin-markdown": "^3.17.1",
+        "typedoc-plugin-missing-exports": "^4.1.4"
+    },
+    "peerDependencies": {
+        "@supercat1337/store2": "^2.0.6"
+    },
+    "ava": {
+        "files": [
+            "tests/**/*.test.js"
+        ],
+        "nodeArguments": [
+            "--experimental-vm-modules"
+        ],
+        "extensions": [
+            "js"
+        ]
+    },
+    "files": [
+        "dist/",
+        "README.md",
+        "AI_DOCS.md",
+        "LICENSE"
+    ]
+}

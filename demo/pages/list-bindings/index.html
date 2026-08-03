@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>List Bindings – store2-dom</title>
+        <link rel="stylesheet" href="../../styles/demo.css" />
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <div class="container">
+            <h1>List Bindings</h1>
+            <p>Reactive list rendering with <code>bindToList</code>.</p>
+
+            <!-- =============================== -->
+            <!-- Пример 1: простой список с шаблоном -->
+            <!-- =============================== -->
+            <section>
+                <h2>📋 Simple List (template)</h2>
+                <p>
+                    The first child of the container is used as a template. Items are rendered as
+                    <code>&lt;li&gt;</code> elements.
+                </p>
+                <div class="controls">
+                    <button id="add-item-btn">Add Item</button>
+                    <button id="remove-last-btn">Remove Last</button>
+                    <button id="reset-list-btn">Reset</button>
+                </div>
+                <ul id="simple-list">
+                    <!-- Template: first <li> will be cloned for each item -->
+                    <li><span class="item-text"></span></li>
+                </ul>
+                <p class="info">Items count: <span id="simple-count"></span></p>
+            </section>
+
+            <!-- =============================== -->
+            <!-- Пример 2: список с кастомным creator -->
+            <!-- =============================== -->
+            <section>
+                <h2>⚙️ Custom Element Creator (no template)</h2>
+                <p>
+                    Instead of a template, we provide a function that creates each element. Here we
+                    create a <code>&lt;div&gt;</code>
+                    with a checkbox and a delete button.
+                </p>
+                <div class="controls">
+                    <button id="add-custom-btn">Add Item</button>
+                    <button id="remove-last-custom-btn">Remove Last</button>
+                </div>
+                <div id="custom-list"></div>
+            </section>
+
+            <!-- =============================== -->
+            <!-- Пример 3: список объектов с getDiffs -->
+            <!-- =============================== -->
+            <section>
+                <h2>📊 Object Items with <code>getDiffs</code></h2>
+                <p>
+                    Each item is an object <code>{ id, name, done }</code>. Only changed fields are
+                    updated in the DOM.
+                </p>
+                <div class="controls">
+                    <button id="toggle-first-done">Toggle First Done</button>
+                    <button id="update-first-name">Update First Name</button>
+                    <button id="add-object-btn">Add Item</button>
+                </div>
+                <ul id="object-list">
+                    <!-- Template: -->
+                    <li>
+                        <input type="checkbox" class="obj-done" />
+                        <span class="obj-name"></span>
+                        <span class="obj-id" style="color: #999; font-size: 0.8rem"></span>
+                        <button class="obj-delete">×</button>
+                    </li>
+                </ul>
+            </section>
+
+            <p><a href="../../index.html">← Back to Demos</a></p>
+        </div>
+
+        <script type="importmap">
+            {
+                "imports": {
+                    "@supercat1337/store2": "../../../node_modules/@supercat1337/store2/dist/store2.esm.bundle.min.js",
+                    "@supercat1337/store2-dom": "../../../dist/store2-dom.esm.js"
+                }
+            }
+        </script>
+        <script type="module" src="main.js"></script>
+    </body>
+</html>

@@ -1,0 +1,123 @@
+/* ============================================
+   List Bindings – дополнительные стили
+   ============================================ */
+
+/* --- Общие стили для списков --- */
+ul {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0;
+}
+
+li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+    border-radius: 0.25rem;
+    margin-bottom: 0.25rem;
+    transition: background 0.15s ease;
+}
+
+li:hover {
+    background: #f1f5f9;
+}
+
+/* --- Простой список (template) --- */
+#simple-list li .item-text {
+    flex: 1;
+    font-weight: 500;
+}
+
+#simple-list li .item-index {
+    color: #94a3b8;
+    font-size: 0.8rem;
+    margin-right: 0.5rem;
+}
+
+/* --- Кастомный список (creator) --- */
+#custom-list .custom-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    background: #ffffff;
+    border-radius: 0.25rem;
+    margin-bottom: 0.25rem;
+}
+#custom-list .custom-item .custom-text {
+    flex: 1;
+}
+#custom-list .custom-item .custom-delete {
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+}
+#custom-list .custom-item .custom-delete:hover {
+    background: #dc2626;
+}
+
+/* --- Объектный список (с getDiffs) --- */
+#object-list li .obj-name {
+    flex: 1;
+}
+#object-list li .obj-done:checked + .obj-name {
+    text-decoration: line-through;
+    color: #94a3b8;
+}
+#object-list li .obj-delete {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0 0.25rem;
+}
+#object-list li .obj-delete:hover {
+    color: #ef4444;
+}
+
+/* --- Controls (кнопки) --- */
+.controls {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin: 0.5rem 0 1rem 0;
+}
+.controls button {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 0.4rem;
+    cursor: pointer;
+}
+.controls button:hover {
+    background: #2563eb;
+}
+.controls button.secondary {
+    background: #64748b;
+}
+.controls button.secondary:hover {
+    background: #475569;
+}
+.controls button.danger {
+    background: #ef4444;
+}
+.controls button.danger:hover {
+    background: #dc2626;
+}
+
+/* --- Информация --- */
+.info {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: #475569;
+}

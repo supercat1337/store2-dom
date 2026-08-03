@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Two-Way Bindings – store2-dom</title>
+        <link rel="stylesheet" href="../../styles/demo.css" />
+        <style>
+            .form-group {
+                margin-bottom: 1rem;
+            }
+            .form-group label {
+                display: inline-block;
+                width: 120px;
+            }
+            .checkbox-group label {
+                display: inline-block;
+                margin-right: 1rem;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Two-Way Bindings</h1>
+
+            <section>
+                <h2>Input (text)</h2>
+                <div class="form-group">
+                    <label>Value:</label>
+                    <input type="text" id="input-text" />
+                    <span id="input-text-display"></span>
+                </div>
+            </section>
+
+            <section>
+                <h2>Checkbox</h2>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="checkbox-demo" />
+                        Checked
+                    </label>
+                    <span id="checkbox-display">false</span>
+                </div>
+            </section>
+
+            <section>
+                <h2>Radio Group</h2>
+                <div class="form-group">
+                    <label><input type="radio" name="radio-group" value="A" /> A</label>
+                    <label><input type="radio" name="radio-group" value="B" /> B</label>
+                    <label><input type="radio" name="radio-group" value="C" /> C</label>
+                    <span id="radio-display">A</span>
+                </div>
+            </section>
+
+            <section>
+                <h2>Select (single)</h2>
+                <div class="form-group">
+                    <select id="select-demo">
+                        <option value="apple">Apple</option>
+                        <option value="banana">Banana</option>
+                        <option value="cherry">Cherry</option>
+                    </select>
+                    <span id="select-display">apple</span>
+                </div>
+            </section>
+
+            <section>
+                <h2>Checkbox Group</h2>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" value="red" /> Red</label>
+                    <label><input type="checkbox" value="green" /> Green</label>
+                    <label><input type="checkbox" value="blue" /> Blue</label>
+                </div>
+                <span id="checkbox-group-display">[]</span>
+            </section>
+
+            <section>
+                <h2>Select Multiple</h2>
+                <select id="select-multiple-demo" multiple size="4">
+                    <option value="one">One</option>
+                    <option value="two">Two</option>
+                    <option value="three">Three</option>
+                    <option value="four">Four</option>
+                </select>
+                <span id="select-multiple-display">[]</span>
+            </section>
+
+            <p><a href="../../index.html">← Back to Demos</a></p>
+        </div>
+
+        <script type="importmap">
+            {
+                "imports": {
+                    "@supercat1337/store2": "../../../node_modules/@supercat1337/store2/dist/store2.esm.bundle.min.js",
+                    "@supercat1337/store2-dom": "../../../dist/store2-dom.esm.js"
+                }
+            }
+        </script>
+        <script type="module" src="./main.js"></script>
+    </body>
+</html>

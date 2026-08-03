@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Basic Bindings – store2-dom</title>
+        <link rel="stylesheet" href="../../styles/demo.css" />
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <div class="container">
+            <h1>Basic Bindings</h1>
+            <p>One‑way bindings from reactive state to DOM.</p>
+
+            <!-- Text Binding -->
+            <section>
+                <h2>📝 Text Binding</h2>
+                <p><strong>Value:</strong> <span id="text-demo"></span></p>
+                <button id="text-update">Update Text</button>
+            </section>
+
+            <!-- HTML Binding -->
+            <section>
+                <h2>📄 HTML Binding</h2>
+                <div id="html-demo" class="box"></div>
+                <button id="html-update">Update HTML</button>
+            </section>
+
+            <!-- Class Binding (исправлен на bindToCssClass) -->
+            <section>
+                <h2>🎨 Class Binding</h2>
+                <div id="class-demo" class="box">Toggle class <code>.highlight</code></div>
+                <button id="class-toggle">Toggle Highlight</button>
+            </section>
+
+            <!-- Style Binding -->
+            <section>
+                <h2>🎨 Style Binding</h2>
+                <div id="style-demo" class="box">Style changes</div>
+                <button id="style-update">Change Style</button>
+            </section>
+
+            <!-- Show Binding -->
+            <section>
+                <h2>👁️ Show Binding</h2>
+                <div id="show-demo" class="box">This box can be hidden</div>
+                <button id="show-toggle">Toggle Visibility</button>
+            </section>
+
+            <!-- Attribute Binding – улучшенный пример -->
+            <section>
+                <h2>🏷️ Attribute Binding</h2>
+                <div id="attr-demo" class="box" data-status="inactive">
+                    <p>Status attribute: <code>data-status</code></p>
+                    <p>Current value: <span id="attr-status-value">inactive</span></p>
+                </div>
+                <button id="attr-update">Toggle Status</button>
+                <p>
+                    <small
+                        >Element background changes based on <code>data-status</code> value.</small
+                    >
+                </p>
+            </section>
+
+            <!-- Dataset Binding – улучшенный пример -->
+            <section>
+                <h2>📦 Dataset Binding</h2>
+                <div id="dataset-demo" class="box" data-role="user" data-status="online">
+                    <p><strong>Role:</strong> <span id="dataset-role">user</span></p>
+                    <p><strong>Status:</strong> <span id="dataset-status">online</span></p>
+                </div>
+                <button id="dataset-update">Switch to Admin</button>
+                <button id="dataset-reset">Reset to User</button>
+                <p>
+                    <small
+                        >All <code>data-*</code> attributes are managed by a reactive object.</small
+                    >
+                </p>
+            </section>
+
+            <p><a href="../../index.html">← Back to Demos</a></p>
+        </div>
+
+        <script type="importmap">
+            {
+                "imports": {
+                    "@supercat1337/store2": "../../../node_modules/@supercat1337/store2/dist/store2.esm.bundle.min.js",
+                    "@supercat1337/store2-dom": "../../../dist/store2-dom.esm.js"
+                }
+            }
+        </script>
+        <script type="module" src="./main.js"></script>
+    </body>
+</html>

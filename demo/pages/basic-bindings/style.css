@@ -1,0 +1,49 @@
+/* ============================================
+   Basic Bindings – дополнительные стили
+   ============================================ */
+
+/* --- Class Binding: .highlight --- */
+.highlight {
+    background-color: #fef08a !important;
+    border: 2px solid #eab308 !important;
+    transition:
+        background-color 0.25s ease,
+        border-color 0.25s ease;
+}
+
+/* Дополнительно: улучшенный внешний вид для #class-demo */
+#class-demo {
+    transition:
+        background-color 0.25s ease,
+        border-color 0.25s ease;
+}
+
+/* --- Attribute Binding: data-status --- */
+#attr-demo[data-status='active'] {
+    background-color: #dcfce7;
+    border-left: 4px solid #22c55e;
+}
+#attr-demo[data-status='inactive'] {
+    background-color: #fee2e2;
+    border-left: 4px solid #ef4444;
+}
+#attr-demo {
+    transition:
+        background-color 0.25s ease,
+        border-left-color 0.25s ease;
+}
+
+/* --- Dataset Binding: data-role --- */
+#dataset-demo[data-role='admin'] {
+    background-color: #dbeafe;
+    border-left: 4px solid #3b82f6;
+}
+#dataset-demo[data-role='user'] {
+    background-color: #f3f4f6;
+    border-left: 4px solid #9ca3af;
+}
+#dataset-demo {
+    transition:
+        background-color 0.25s ease,
+        border-left-color 0.25s ease;
+}
