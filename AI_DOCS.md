@@ -11,11 +11,16 @@
 2. [Core Concepts](#core-concepts)
 3. [One‑Way Bindings](#one-way-bindings)
 4. [Two‑Way Bindings](#two-way-bindings)
-5. [List Binding](#list-binding)
+5. [List Binding (`bindToList`)](#list-binding-bindtolist)
 6. [Utilities & Helpers](#utilities--helpers)
 7. [Global Options](#global-options)
 8. [TypeScript](#typescript)
-9. [Examples](#examples)
+9. [Internal Mechanics & Implementation Details](#internal-mechanics--implementation-details)
+    - [9.1. `autoDisconnect` Implementation](#91-autodisconnect-implementation)
+    - [9.2. `bindToList` Internals](#92-bindtolist-internals)
+10. [Common Pitfalls for AI-Generated Code](#10-common-pitfalls-for-ai-generated-code)
+11. [Examples](#11-examples)
+12. [License](#license)
 
 ---
 
@@ -55,7 +60,7 @@ These bindings update the DOM when the reactive value changes, but not vice vers
 ### `bindToAttribute(element, reactive, attributeName, options?)`
 
 - `element: HTMLElement`
-- `reactive: Atom<string\|null> | Computed<string\|null>`
+- `reactive: Atom<string|null> | Computed<string|null>`
 - If value is `null`, attribute is removed.
 
 ### `bindToClassString(element, reactive, options?)`
@@ -149,7 +154,7 @@ All two‑way bindings return an `Unsubscriber` function that removes event list
 
 ---
 
-## List Binding
+## List Binding (`bindToList`)
 
 ### `bindToList(container, collection, itemSetter, itemCreator?, options?)`
 
@@ -214,6 +219,95 @@ import type {
     ListItemSetterDetails,
 } from '@supercat1337/store2-dom';
 ```
+
+---
+
+## Internal Mechanics & Implementation Details
+
+### 9.1. `autoDisconnect` Implementation
+
+`autoDisconnect` uses a **simple, lightweight check** rather than a `MutationObserver`:
+
+- When a binding is created, it stores a reference to the target DOM element.
+- Every time the reactive value changes and the binding needs to update the DOM, it first checks `element.isConnected`.
+- If the element is no longer connected to the DOM, the binding **automatically unsubscribes** from the reactive store and removes any attached event listeners.
+- This check is performed synchronously during each update cycle, making it **fast** and **reliable** for most use cases.
+
+**Why this approach?**
+
+- No need for `MutationObserver` – avoids extra overhead and complexity.
+- Works correctly even when elements are removed and re‑added (the binding will stay unsubscribed – it does **not** re‑attach automatically, which is intentional to prevent memory leaks).
+- If you need more explicit control, you can always use the `signal` option with an `AbortController`.
+
+> **Note:** Because the check runs only when the reactive value changes, if an element is removed from the DOM but the reactive value never changes, the binding will not be cleaned up until the next update. In practice, this is rarely an issue, but for guaranteed cleanup, you can call the returned `unsubscribe` function manually or use `signal`.
+
+### 9.2. `bindToList` Internals
+
+`bindToList` maintains an internal map of index → DOM element. When the collection changes, it reacts to specific mutation events:
+
+- **`eventType === 'set'`** (value at a specific index changed):
+    - Calls `itemSetter` with the updated value and the existing DOM element.
+    - `helper.getDiffs(newValue, oldValue)` is typically used inside `itemSetter` to determine which DOM properties need updating.
+    - DOM is **not** recreated, only mutated in place.
+
+- **`eventType === 'add'`** (items inserted at a specific index):
+    - Creates new DOM elements using `itemCreator` (or cloning the template from the first child).
+    - Inserts them at the correct position in the container.
+    - Updates the internal map and index references.
+
+- **`eventType === 'remove'`** (items removed at a specific index):
+    - Removes the corresponding DOM element from the container.
+    - Cleans up any subscriptions related to that item (if the item itself is reactive, though not typical).
+    - Updates the internal map and reindexes subsequent elements.
+
+- **`eventType === 'replace'`** (the entire collection was reassigned with a new array):
+    - Clears the entire container and rebuilds all items from scratch using the new array.
+    - This is a full rerender and should be avoided for large lists when only small changes are needed.
+
+**Performance considerations:**
+
+- `bindToList` uses a **simple diff** strategy based on index and the `getDiffs` helper. It does not use a virtual DOM; instead, it relies on the developer's `itemSetter` to efficiently update DOM nodes.
+- For large collections, prefer using collection mutation methods (`push`, `pop`, `splice`, `setItem`) over full array reassignment to avoid full rerenders.
+
+---
+
+## 10. Common Pitfalls for AI-Generated Code
+
+When generating code that uses `store2-dom`, avoid these frequent mistakes:
+
+1. **Not storing the unsubscribe function**  
+   ❌ `bindToInput(input, atom)` without saving the return value – leads to memory leaks in SPA transitions.  
+   ✅ Always store the returned unsubscribe function and call it on component unmount, or use `signal` option.
+
+2. **Using `.peekValue()` with bindings**  
+   ❌ `bindToText(el, computed(() => atom.peekValue()))` – the binding will not update because `peekValue()` doesn't track dependencies.  
+   ✅ Pass the reactive item directly: `bindToText(el, atom)` or `bindToText(el, computed(() => atom.value))`.
+
+3. **Full array reassignment with `bindToList`**  
+   ❌ `todos.value = [...todos.value, newTodo]` – triggers a full rerender of the list, which is expensive.  
+   ✅ Use `todos.value.push(newTodo)` or `todos.value.setItem(index, newValue)` to apply minimal DOM updates.
+
+4. **Assuming `autoDisconnect` works when moving elements**  
+   ❌ Relying on `autoDisconnect` when you programmatically move an element to another container – the check `isConnected` will return `true` if it's still in the DOM, so `autoDisconnect` won't trigger. That's correct and intended.  
+   ✅ Use `signal` with an `AbortController` and explicitly abort it when you want to detach the binding, or call the returned unsubscribe function manually.
+
+5. **Mutating reactive value inside two-way binding event**  
+   ❌ `atom.value = event.target.value` inside a `bindToInput` – the binding already does this; double‑updating can cause loops.  
+   ✅ Let the binding handle the DOM → store sync; only mutate the atom from outside when needed.
+
+6. **Destructuring `collection.value` inside `bindToList`**  
+   ❌ `const items = collection.value` – breaks reactivity because the binding needs the reactive object itself.  
+   ✅ Pass the `collection` directly to `bindToList`.
+
+7. **Not using `getDiffs` to minimize DOM updates**  
+   ❌ Updating all DOM properties on every `itemSetter` call, even when only one field changed.  
+   ✅ Use `helper.getDiffs(newValue, oldValue)` to conditionally update only changed parts.
+
+8. **Using `bindToHtml` with untrusted content**  
+   ❌ `bindToHtml(el, userInputAtom)` – exposes your app to XSS attacks.  
+   ✅ Use `bindToText` for user-generated content, or sanitize HTML before rendering.
+
+By following these guidelines, AI-generated code will be efficient, safe, and correctly reactive.
 
 ---
 
@@ -299,7 +393,9 @@ const userAge = atom(25);
 
 **Escape hatch:** if you must mutate, provide a custom `compareFunction` that performs deep equality (e.g., via `JSON.stringify`) and then trigger update with `value = value`.
 
-See the main README for detailed guidance.
+See the main store2 README for detailed guidance.
+
+---
 
 ## License
 
