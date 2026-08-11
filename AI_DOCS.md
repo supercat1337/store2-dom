@@ -271,7 +271,50 @@ import type {
 
 ---
 
-## 10. Common Pitfalls for AI-Generated Code
+## 10. Working with `deepReactive` (from `@supercat1337/store2-deep`)
+
+When using `store2-dom` together with `deepReactive`, follow this pattern to avoid confusion:
+
+- **Read‑only binding** (state → DOM): create a `computed` that reads the deep property, then bind it with `bindToProperty` or `bindToText`.
+- **Write‑back** (DOM → state): use native DOM events and mutate the proxy directly.
+
+```js
+import { deepReactive } from '@supercat1337/store2-deep';
+import { bindToProperty, bindToText } from '@supercat1337/store2-dom';
+import { computed } from '@supercat1337/store2';
+
+const state = deepReactive({ user: { name: 'Alex' } });
+const nameComputed = computed(() => state.user.name);
+
+// Display
+const input = document.getElementById('name');
+bindToProperty(input, nameComputed, 'value');
+
+// Write back on input
+input.addEventListener('input', () => {
+    state.user.name = input.value;
+});
+
+// Display JSON
+const pre = document.getElementById('preview');
+const jsonComputed = computed(() => JSON.stringify(state, null, 2));
+bindToText(pre, jsonComputed);
+```
+
+**Important:** `bindToInput` expects an `Atom` with a setter, not a `computed`. For `computed` (which is read‑only), you must use `bindToProperty` (or `bindToText`) and handle the reverse sync manually. This is intentional — it keeps the data flow explicit and avoids accidental writes.
+
+**Why this works:**
+
+- `deepReactive` creates an `Atom` for each property behind the scenes.
+- `computed` tracks those atoms and recomputes when they change.
+- `bindToProperty` subscribes to the computed and updates the DOM property.
+- DOM events write directly to the proxy, which triggers the computed and updates all bindings.
+
+This approach is recommended for all projects that use `deepReactive` with DOM bindings. It is clean, predictable, and avoids creating extra reactive items.
+
+---
+
+## 11. Common Pitfalls for AI-Generated Code
 
 When generating code that uses `store2-dom`, avoid these frequent mistakes:
 
@@ -394,6 +437,8 @@ const userAge = atom(25);
 **Escape hatch:** if you must mutate, provide a custom `compareFunction` that performs deep equality (e.g., via `JSON.stringify`) and then trigger update with `value = value`.
 
 See the main store2 README for detailed guidance.
+
+> **For `deepReactive` users:** You do not need to follow the immutable update pattern — `deepReactive` allows direct mutations (`state.user.name = 'Bob'`). However, when binding to DOM, still use `computed` getters as shown above.
 
 ---
 

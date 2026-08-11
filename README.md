@@ -55,6 +55,56 @@ Now typing in the input automatically updates the greeting paragraph — **react
 
 ---
 
+## Integration with `deepReactive` (from `@supercat1337/store2-deep`)
+
+`store2-dom` works seamlessly with deep reactive objects created via `deepReactive`. Since `deepReactive` uses per‑property atoms internally, you can read a nested property using a **read‑only `computed`** and bind it to the DOM.
+
+**Recommended pattern:**
+
+1. Create a `computed` getter that reads the nested property.
+2. Use **`bindToProperty`** or **`bindToText`** to update the DOM when the computed changes.
+3. For user input, listen to DOM events and mutate the proxy directly — no need to create separate atoms.
+
+```js
+import { deepReactive } from '@supercat1337/store2-deep';
+import { bindToProperty } from '@supercat1337/store2-dom';
+import { computed } from '@supercat1337/store2';
+
+const state = deepReactive({ user: { name: 'Alice', age: 30 } });
+
+// Read‑only computed for a nested property
+const nameComputed = computed(() => state.user.name);
+
+// Bind to input.value – updates DOM when state changes
+const input = document.getElementById('name');
+bindToProperty(input, nameComputed, 'value');
+
+// Two‑way: write back to the proxy on user input
+input.addEventListener('input', () => {
+    state.user.name = input.value;
+});
+```
+
+**Why not `bindToInput`?**  
+`bindToInput` expects an `Atom<string|number>` with a setter. `computed` is read‑only and has no setter, so `bindToInput` cannot update it. Use `bindToProperty` for read‑only computed values and handle the reverse direction via DOM events.
+
+> 💡 **Alternative:** If you prefer a more declarative style, you can use `reaction` to manually update the DOM:
+>
+> ```js
+> reaction(
+>     () => state.user.name,
+>     name => {
+>         input.value = name;
+>     }
+> );
+> ```
+>
+> However, `bindToProperty` handles unsubscription automatically (via `autoDisconnect` and `signal`) and is cleaner for simple property bindings.
+
+This pattern gives you a clear **unidirectional data flow**: state → DOM via computed, DOM → state via events.
+
+---
+
 ## Core Concepts
 
 | Concept             | Description                                                                                                                      |
