@@ -27,8 +27,6 @@ export function bindToSelectMultiple(selectElement, reactive, options = {}) {
             if (selectElement.options[i].selected) selected.push(selectElement.options[i].value);
         }
         reactive.value = selected;
-        console.log('reactive.value', reactive.value);
-        console.log('selected', selected);
     };
 
     // Initial sync

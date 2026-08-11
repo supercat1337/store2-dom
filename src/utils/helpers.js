@@ -13,10 +13,6 @@ export function getDiffs(newObject, oldObject, customCompareFunction) {
     const result = {};
 
     for (const prop in newObject) {
-        if (typeof prop !== 'string') {
-            continue;
-        }
-
         if (oldObject && oldObject.hasOwnProperty(prop)) {
             result[prop] = customCompareFunction
                 ? !customCompareFunction(newObject[prop], oldObject[prop])

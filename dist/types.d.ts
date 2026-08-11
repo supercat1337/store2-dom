@@ -180,10 +180,9 @@ export function bindToHtml(element: HTMLElement, reactiveItem: Atom<string | num
  * @template T
  * @param {HTMLElement} listElement
  * @param {ReactiveItem & { value: T[] }} reactiveItem
- *   Any reactive item that holds an array (Collection, Computed, Atom, etc.)
- * @param {(listItemHelper:ListItemHelper, details:ListItemSetterDetails<T>) => void} itemValueSetter - Function to update an item element.
- * @param {TypeItemCreator|null} [elementItemCreator] - Optional custom element creator.
- * @param {BindToListOptions} [options={}] - Options.
+ * @param {(listItemHelper:ListItemHelper, details:ListItemSetterDetails<T>) => void} itemValueSetter
+ * @param {TypeItemCreator|null} [elementItemCreator]
+ * @param {BindToListOptions} [options={}]
  * @returns {()=>void}
  */
 export function bindToList<T>(listElement: HTMLElement, reactiveItem: ReactiveItem & {
@@ -194,11 +193,11 @@ export function bindToList<T>(listElement: HTMLElement, reactiveItem: ReactiveIt
  */
 export class ListItemSetterDetails<T> {
     /**
-     * @param {HTMLElement} itemElement - The list item element.
-     * @param {number} index - The index.
-     * @param {T} value - The new value.
-     * @param {any} oldValue - The old value.
-     * @param {number} length - The list length.
+     * @param {HTMLElement} itemElement
+     * @param {number} index
+     * @param {T} value
+     * @param {any} oldValue
+     * @param {number} length
      */
     constructor(itemElement: HTMLElement, index: number, value: T, oldValue: any, length: number);
     /** @type {HTMLElement} */
@@ -214,34 +213,29 @@ export class ListItemSetterDetails<T> {
 }
 export class ListItemHelper {
     /**
-     * @param {HTMLElement} [templateElement] - The template HTML element.
+     * @param {HTMLElement} [templateElement]
      */
     constructor(templateElement?: HTMLElement);
     /**
-     * Returns true if a template element is set.
      * @returns {boolean}
      */
     hasTemplate(): boolean;
     /**
-     * Returns a clone of the template element.
      * @returns {HTMLElement|null}
      */
     getTemplate(): HTMLElement | null;
     /**
-     * Returns the index of the list item element.
      * @param {HTMLElement} element
      * @returns {number}
      */
     getListItemIndex(element: HTMLElement): number;
     /**
-     * Returns the list item element by child node.
      * @param {HTMLElement} element
      * @param {string} [attrName]
      * @returns {HTMLElement|null}
      */
     getListItem(element: HTMLElement, attrName?: string): HTMLElement | null;
     /**
-     * Compares two objects and returns info about their differences.
      * @template {{[key:string]:any}} T
      * @param {T} newObject
      * @param {any} oldObject

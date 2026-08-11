@@ -1,6 +1,6 @@
 // @ts-check
 
-import { Store } from '@supercat1337/store2';
+import { atom, computed } from '@supercat1337/store2';
 import { bindToCheckbox, bindToClassString, bindToShow } from '../../src/index.js';
 
 var show_checkbox = /** @type {HTMLInputElement} */ (document.querySelector('#show_checkbox'));
@@ -11,16 +11,14 @@ var make_danger_checkbox = /** @type {HTMLInputElement} */ (
 var block_element = /** @type {HTMLElement} */ (document.querySelector('#sample_div'));
 var text_element = /** @type {HTMLElement} */ (document.querySelector('#sample_text'));
 
-let store = new Store();
-
 let show_atom = atom(false);
-let show_atom_computed = store.createComputed(() => {
+let show_atom_computed = computed(() => {
     return show_atom.value;
 });
 
 let danger_atom = atom(false);
 
-let danger_classname_computed = store.createComputed(() => {
+let danger_classname_computed = computed(() => {
     return danger_atom.value ? 'text-danger display-6' : '';
 });
 

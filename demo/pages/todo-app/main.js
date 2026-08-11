@@ -1,16 +1,13 @@
 // @ts-check
 
-import { collection, atom, computed, batch, autorun } from '@supercat1337/store2';
+import { atom, collection, computed } from '@supercat1337/store2';
 import {
+    bindToInput,
     bindToList,
     bindToText,
-    bindToInput,
-    bindToCheckbox,
-    bindToCssClass,
-    bindToShow,
     getDiffs,
     ListItemHelper,
-    ListItemSetterDetails,
+    ListItemSetterDetails
 } from '@supercat1337/store2-dom';
 
 // ============================================================
@@ -36,7 +33,6 @@ const newTodoText = atom('');
 const filteredTodos = computed(() => {
     const all = todos.value;
     const f = filter.value;
-
     if (f === 'all') return [...all];
     if (f === 'active') return all.filter(t => !t.done);
     if (f === 'completed') return all.filter(t => t.done);
@@ -56,45 +52,35 @@ const stats = computed(() => {
 // 3. DOM-элементы
 // ============================================================
 
-/** @type {HTMLInputElement} */
-const newTodoInput = /** @type {any} */ (document.getElementById('new-todo-input'));
-/** @type {HTMLButtonElement} */
-const addBtn = /** @type {any} */ (document.getElementById('add-todo-btn'));
-/** @type {HTMLUListElement} */
-const todoListEl = /** @type {any} */ (document.getElementById('todo-list'));
-/** @type {HTMLSpanElement} */
-const statsEl = /** @type {any} */ (document.getElementById('todo-stats'));
-/** @type {HTMLButtonElement} */
-const clearCompletedBtn = /** @type {any} */ (document.getElementById('clear-completed-btn'));
+const newTodoInput = /** @type {HTMLInputElement} */ (document.getElementById('new-todo-input'));
+const addBtn = /** @type {HTMLButtonElement} */ (document.getElementById('add-todo-btn'));
+const todoListEl = /** @type {HTMLUListElement} */ (document.getElementById('todo-list'));
+const statsEl = /** @type {HTMLSpanElement} */ (document.getElementById('todo-stats'));
+const clearCompletedBtn = /** @type {HTMLButtonElement} */ (
+    document.getElementById('clear-completed-btn')
+);
 
 // ============================================================
 // 4. Биндинги
 // ============================================================
 
-// 4.1. Поле ввода – двухсторонняя привязка к новому тексту
 bindToInput(newTodoInput, newTodoText, { debounceTime: 0 });
 
-// 4.2. Кнопка добавления
 addBtn.addEventListener('click', () => {
     const text = newTodoText.value.trim();
     if (!text) return;
     const current = Array.isArray(todos.value) ? todos.value : [];
     const newId = current.length > 0 ? Math.max(...current.map(t => t.id)) + 1 : 1;
     todos.value = [...current, { id: newId, text, done: false }];
-    newTodoText.value = ''; // очистка поля
+    newTodoText.value = '';
 });
 
-// 4.3. Добавление по Enter
 newTodoInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') {
-        addBtn.click();
-    }
+    if (e.key === 'Enter') addBtn.click();
 });
 
-// 4.4. Статистика
 bindToText(statsEl, stats);
 
-// 4.5. Фильтры
 document.querySelectorAll('.filters button').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.filters button').forEach(b => b.classList.remove('active'));
@@ -103,14 +89,49 @@ document.querySelectorAll('.filters button').forEach(btn => {
     });
 });
 
-// 4.6. Очистка выполненных
 clearCompletedBtn.addEventListener('click', () => {
     todos.value = todos.value.filter(t => !t.done);
 });
 
 // ============================================================
-// 5. Биндинг списка с использованием bindToList
+// 5. Биндинг списка
 // ============================================================
+
+/**
+ * @param {ListItemHelper} helper
+ * @returns {HTMLElement}
+ */
+function createTodoItem(helper) {
+    const template = helper.getTemplate();
+    if (!template) throw new Error('No template');
+
+    const checkbox = /** @type {HTMLInputElement} */ (template.querySelector('.todo-checkbox'));
+    const deleteBtn = /** @type {HTMLButtonElement} */ (template.querySelector('.todo-delete'));
+
+    checkbox.addEventListener('change', () => {
+        const index = helper.getListItemIndex(template);
+        if (index === -1) return;
+        const current = Array.isArray(todos.value) ? todos.value : [];
+        if (index >= 0 && index < current.length) {
+            const newTodos = [...current];
+            newTodos[index] = { ...newTodos[index], done: checkbox.checked };
+            todos.value = newTodos;
+        }
+    });
+
+    deleteBtn.addEventListener('click', () => {
+        const index = helper.getListItemIndex(template);
+        if (index === -1) return;
+        const current = Array.isArray(todos.value) ? todos.value : [];
+        if (index >= 0 && index < current.length) {
+            const newTodos = [...current];
+            newTodos.splice(index, 1);
+            todos.value = newTodos;
+        }
+    });
+
+    return template;
+}
 
 /**
  * @param {ListItemHelper} helper
@@ -121,62 +142,25 @@ function todoItemSetter(helper, details) {
     const checkbox = /** @type {HTMLInputElement} */ (li.querySelector('.todo-checkbox'));
     const textSpan = /** @type {HTMLSpanElement} */ (li.querySelector('.todo-text'));
     const idSpan = /** @type {HTMLSpanElement} */ (li.querySelector('.todo-id'));
-    const deleteBtn = /** @type {HTMLButtonElement} */ (li.querySelector('.todo-delete'));
 
-    // Используем getDiffs для частичного обновления
     const diffs = getDiffs(details.value, details.oldValue || {});
 
     if (diffs.text) {
-        bindToText(textSpan, atom(details.value.text));
+        textSpan.textContent = details.value.text;
     }
     if (diffs.done) {
         checkbox.checked = details.value.done;
-        // Класс для зачёркивания
-        const doneAtom = atom(details.value.done);
-        bindToCssClass(li, doneAtom, 'done');
+        li.classList.toggle('done', details.value.done);
     }
     if (diffs.id) {
-        bindToText(idSpan, atom(String(details.value.id)));
+        idSpan.textContent = String(details.value.id);
     }
-
-    // --- Обработчик чекбокса (изменение статуса) ---
-    const newCheckbox = checkbox.cloneNode(true);
-    checkbox.parentNode?.replaceChild(newCheckbox, checkbox);
-    newCheckbox.addEventListener('change', () => {
-        const current = Array.isArray(todos.value) ? todos.value : [];
-        const index = details.index;
-        if (index >= 0 && index < current.length) {
-            const newTodos = [...current];
-            newTodos[index] = { ...newTodos[index], done: newCheckbox.checked };
-            todos.value = newTodos;
-        }
-    });
-
-    // --- Обработчик удаления ---
-    const newDeleteBtn = deleteBtn.cloneNode(true);
-    deleteBtn.parentNode?.replaceChild(newDeleteBtn, deleteBtn);
-    newDeleteBtn.addEventListener('click', () => {
-        const current = Array.isArray(todos.value) ? todos.value : [];
-        const index = details.index;
-        if (index >= 0 && index < current.length) {
-            const newTodos = [...current];
-            newTodos.splice(index, 1);
-            todos.value = newTodos;
-        }
-    });
 }
 
-// Привязываем список – используем шаблон (первый <li>)
-bindToList(
-    todoListEl,
-    filteredTodos, // используем отфильтрованный список
-    todoItemSetter,
-    null, // используем шаблон
-    { debounceTime: 0 }
-);
+bindToList(todoListEl, filteredTodos, todoItemSetter, createTodoItem, { debounceTime: 0 });
 
 // ============================================================
-// 6. Начальные данные (для демонстрации)
+// 6. Начальные данные
 // ============================================================
 todos.value = [
     { id: 1, text: 'Learn store2', done: true },

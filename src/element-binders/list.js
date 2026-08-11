@@ -30,9 +30,9 @@ class ElementList {
     /**
      * Initializes the ElementList instance.
      * @param {import("@supercat1337/store2").ReactiveItem & { value: T[] }} reactiveItem
-     * @param {HTMLElement} element - The HTML element that contains the list.
-     * @param {{(listItemHelper:ListItemHelper, details:ListItemSetterDetails<T>):void}} itemValueSetter - Function to set value of a single list item.
-     * @param {TypeItemCreator|null} [elementItemCreator] - Optional custom element creator.
+     * @param {HTMLElement} element
+     * @param {(listItemHelper:ListItemHelper, details:ListItemSetterDetails<T>)=>void} itemValueSetter
+     * @param {TypeItemCreator|null} [elementItemCreator]
      */
     constructor(reactiveItem, element, itemValueSetter, elementItemCreator) {
         this.#reactiveItem = reactiveItem;
@@ -42,68 +42,48 @@ class ElementList {
         this.#rootListElement.innerHTML = '';
 
         if (elementItemCreator) {
-            this.#elementItemCreator = () => {
-                return elementItemCreator(this.#listItemHelper);
-            };
+            this.#elementItemCreator = () => elementItemCreator(this.#listItemHelper);
         } else {
             if (this.#listItemHelper.hasTemplate()) {
                 this.#elementItemCreator = () => {
-                    const itemElement = this.#listItemHelper.getTemplate();
-                    if (itemElement == null) {
-                        throw new Error(`template is not set`);
-                    }
+                    const itemElement = /** @type {HTMLElement} */ (
+                        this.#listItemHelper.getTemplate()
+                    );
+                    // Template existence is guaranteed by hasTemplate()
                     return itemElement;
                 };
             } else {
-                throw new Error(`elementItemCreator or template is not set`);
+                throw new Error('elementItemCreator or template is not set');
             }
         }
+
         this.#itemValueSetter = itemValueSetter;
-        this.setData(this.#reactiveItem.value);
+        // Initial render
+        this.replaceAll(this.#reactiveItem.value);
     }
 
     /**
-     * Loads the first child element as template.
+     * Loads the first child as template.
      * @returns {HTMLElement|undefined}
      */
     #loadTemplate() {
         const listItem = this.#rootListElement.firstElementChild;
         if (listItem) {
-            const listItemTemplate = /** @type {HTMLElement} */ (listItem.cloneNode(true));
-            return listItemTemplate;
+            return /** @type {HTMLElement} */ (listItem.cloneNode(true));
         }
-        return;
+        return undefined;
     }
 
     /**
-     * Removes the element at the specified index.
-     * @param {number} index
-     */
-    removeElementListItem(index) {
-        this.#rootListElement.children.item(index)?.remove();
-    }
-
-    /**
-     * Removes the last child element.
-     */
-    removeLastElementListItem() {
-        this.#rootListElement.lastElementChild?.remove();
-    }
-
-    /**
-     * Sets the value of the element at the specified index.
+     * Updates an existing item at the given index.
      * @param {number} index
      * @param {T} value
      * @param {any} oldValue
      */
-    setElementItemValue(index, value, oldValue) {
+    updateItem(index, value, oldValue) {
         const listItem = /** @type {HTMLElement} */ (this.#rootListElement.children.item(index));
-        if (!listItem) {
-            return;
-        }
-
+        if (!listItem) return;
         listItem.setAttribute(itemIndexAttrName, String(index));
-
         const details = new ListItemSetterDetails(
             listItem,
             index,
@@ -115,48 +95,57 @@ class ElementList {
     }
 
     /**
-     * Sets the data for the entire list.
-     * @param {T[]} arr
-     */
-    setData(arr) {
-        this.setElementListSize(arr.length);
-        for (let index = 0; index < arr.length; index++) {
-            this.setElementItemValue(index, arr[index], undefined);
-        }
-    }
-
-    /**
-     * Sets the size of the list, adding or removing elements as necessary.
-     * @param {number} size
-     */
-    setElementListSize(size) {
-        const rootList = this.#rootListElement;
-        const listItemsLength = rootList.children.length;
-
-        if (listItemsLength === size) {
-            return;
-        }
-
-        if (listItemsLength < size) {
-            for (let i = listItemsLength; i < size; i++) {
-                this.appendElementListItem(this.#reactiveItem.value[i], i);
-            }
-        } else {
-            for (let i = size; i < listItemsLength; i++) {
-                this.removeLastElementListItem();
-            }
-        }
-    }
-
-    /**
-     * Appends a new element to the list.
+     * Inserts a new item at the given index.
+     * @param {number} index
      * @param {T} value
+     */
+    insertItem(index, value) {
+        const newElement = this.#elementItemCreator(this.#listItemHelper);
+        const nextSibling = this.#rootListElement.children.item(index);
+        if (nextSibling) {
+            this.#rootListElement.insertBefore(newElement, nextSibling);
+        } else {
+            this.#rootListElement.append(newElement);
+        }
+        this.#updateIndexes(index);
+        this.updateItem(index, value, undefined);
+    }
+
+    /**
+     * Removes the item at the given index.
      * @param {number} index
      */
-    appendElementListItem(value, index) {
-        const elementItem = this.#elementItemCreator(this.#listItemHelper);
-        this.#rootListElement.append(elementItem);
-        this.setElementItemValue(index, value, undefined);
+    removeItem(index) {
+        const item = this.#rootListElement.children.item(index);
+        if (!item) return;
+        item.remove();
+        this.#updateIndexes(index);
+    }
+
+    /**
+     * Completely rebuilds the list from the given array.
+     * @param {T[]} arr
+     */
+    replaceAll(arr) {
+        this.#rootListElement.innerHTML = '';
+        for (let i = 0; i < arr.length; i++) {
+            const newElement = this.#elementItemCreator(this.#listItemHelper);
+            this.#rootListElement.append(newElement);
+            newElement.setAttribute(itemIndexAttrName, String(i));
+            const details = new ListItemSetterDetails(newElement, i, arr[i], undefined, arr.length);
+            this.#itemValueSetter(this.#listItemHelper, details);
+        }
+    }
+
+    /**
+     * Updates `item-index` attributes from `startIndex` to the end.
+     * @param {number} startIndex
+     */
+    #updateIndexes(startIndex) {
+        const children = this.#rootListElement.children;
+        for (let i = startIndex; i < children.length; i++) {
+            children[i].setAttribute(itemIndexAttrName, String(i));
+        }
     }
 }
 
@@ -186,11 +175,12 @@ function getListItemIndex(element) {
         return -1;
     }
     const index = listItem.getAttribute(itemIndexAttrName);
-    if (index === null) {
-        return -1;
-    }
-    return parseInt(index);
+    // index is guaranteed to be non-null because getListItem found the element by this attribute
+    // @ts-ignore
+    return parseInt(index, 10);
 }
+
+// ===== Exported classes and functions =====
 
 /**
  * @template T
@@ -208,11 +198,11 @@ export class ListItemSetterDetails {
     length;
 
     /**
-     * @param {HTMLElement} itemElement - The list item element.
-     * @param {number} index - The index.
-     * @param {T} value - The new value.
-     * @param {any} oldValue - The old value.
-     * @param {number} length - The list length.
+     * @param {HTMLElement} itemElement
+     * @param {number} index
+     * @param {T} value
+     * @param {any} oldValue
+     * @param {number} length
      */
     constructor(itemElement, index, value, oldValue, length) {
         this.itemElement = itemElement;
@@ -228,7 +218,7 @@ export class ListItemHelper {
     #templateElement = null;
 
     /**
-     * @param {HTMLElement} [templateElement] - The template HTML element.
+     * @param {HTMLElement} [templateElement]
      */
     constructor(templateElement) {
         if (templateElement) {
@@ -237,7 +227,6 @@ export class ListItemHelper {
     }
 
     /**
-     * Returns true if a template element is set.
      * @returns {boolean}
      */
     hasTemplate() {
@@ -245,7 +234,6 @@ export class ListItemHelper {
     }
 
     /**
-     * Returns a clone of the template element.
      * @returns {HTMLElement|null}
      */
     getTemplate() {
@@ -256,7 +244,6 @@ export class ListItemHelper {
     }
 
     /**
-     * Returns the index of the list item element.
      * @param {HTMLElement} element
      * @returns {number}
      */
@@ -265,7 +252,6 @@ export class ListItemHelper {
     }
 
     /**
-     * Returns the list item element by child node.
      * @param {HTMLElement} element
      * @param {string} [attrName]
      * @returns {HTMLElement|null}
@@ -275,7 +261,6 @@ export class ListItemHelper {
     }
 
     /**
-     * Compares two objects and returns info about their differences.
      * @template {{[key:string]:any}} T
      * @param {T} newObject
      * @param {any} oldObject
@@ -292,10 +277,9 @@ export class ListItemHelper {
  * @template T
  * @param {HTMLElement} listElement
  * @param {import("@supercat1337/store2").ReactiveItem & { value: T[] }} reactiveItem
- *   Any reactive item that holds an array (Collection, Computed, Atom, etc.)
- * @param {(listItemHelper:ListItemHelper, details:ListItemSetterDetails<T>) => void} itemValueSetter - Function to update an item element.
- * @param {TypeItemCreator|null} [elementItemCreator] - Optional custom element creator.
- * @param {import("../types.d.ts").BindToListOptions} [options={}] - Options.
+ * @param {(listItemHelper:ListItemHelper, details:ListItemSetterDetails<T>) => void} itemValueSetter
+ * @param {TypeItemCreator|null} [elementItemCreator]
+ * @param {import("../types.d.ts").BindToListOptions} [options={}]
  * @returns {()=>void}
  */
 export function bindToList(
@@ -314,15 +298,61 @@ export function bindToList(
     const _options = Object.assign({}, globalOptions, options);
     const { autoDisconnect, signal, debounceTime } = _options;
 
-    // Исправленный вызов subscribe – передаём объект { delay }
     const unsubscribe = reactiveItem.subscribe(
-        () => {
+        updates => {
+
             if (autoDisconnect && !listElement.isConnected) {
                 unsubscribe();
                 return;
             }
-            // Полная перестройка при любом изменении коллекции
-            elementListWrapper.setData(reactiveItem.value);
+
+            let lengthUpdate = null;
+            const indexUpdates = [];
+
+            // Separate length update from index updates
+            for (const [key, record] of updates) {
+                if (key === 'length') {
+                    lengthUpdate = record;
+                    continue;
+                }
+                const index = parseInt(key, 10);
+                indexUpdates.push({ index, record });
+            }
+
+            // If there are multiple index updates, it's likely a splice or full replacement
+            // Rebuild the entire list to keep it simple and correct.
+            if (updates.get("")) {
+                elementListWrapper.replaceAll(reactiveItem.value);
+                return;
+            }
+
+            // Process the single index update if any
+            for (const { index, record } of indexUpdates) {
+                const { type, oldValue, value } = record;
+                if (type === 'delete') {
+                    elementListWrapper.removeItem(index);
+                } else if (type === 'set') {
+                    if (oldValue === undefined && value !== undefined) {
+                        // Insert
+                        elementListWrapper.insertItem(index, value);
+                    } else {
+                        // Update existing
+                        elementListWrapper.updateItem(index, value, oldValue);
+                    }
+                }
+            }
+
+            // Handle length change: if the list is longer than expected, remove trailing items
+            if (lengthUpdate) {
+                const newLength = lengthUpdate.value;
+                const currentLength = listElement.children.length;
+                if (newLength < currentLength) {
+                    for (let i = currentLength - 1; i >= newLength; i--) {
+                        elementListWrapper.removeItem(i);
+                    }
+                }
+                // If newLength > currentLength, we assume the items were added via the index update.
+            }
         },
         { delay: debounceTime }
     );

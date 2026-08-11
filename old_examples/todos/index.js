@@ -13,7 +13,7 @@ It sets up event listeners for various user interactions, such as adding a new t
 Overall, this code sets up the basic structure of a to-do list application, including the data management and presentation layers.
 */
 
-import { Store } from '@supercat1337/store2';
+import { atom, collection, computed, Store } from '@supercat1337/store2';
 import { tasks_service } from './task-service.js';
 
 import { bindToList, bindToText, bindToDisabled, bindToInput } from './../../src/index.js';
@@ -21,22 +21,19 @@ import { ListItemHelper, ListItemSetterDetails } from '../../src/index.js';
 
 // Model
 
-// creates a new Store object to manage the state of the application
-const store = new Store();
-
 // creates a collection in the store to store the to-do items
 const todos = collection(/** @type {import("./task-service.js").ItemData[]} */ ([]));
 
 // creates a computed value that returns the length of the todos collection
-const computed_length = store.createComputed(() => {
-    return todos.content.length.toString();
+const computed_length = computed(() => {
+    return todos.value.length.toString();
 });
 
 // creates an atom to store the value of the filter input field
 const filter_input_atom = atom('');
 
 // creates a computed value that returns true if the filter_input_atom is not empty
-const filter_input_not_empty = store.createComputed(() => {
+const filter_input_not_empty = computed(() => {
     return filter_input_atom.value.length > 0;
 });
 
@@ -72,7 +69,7 @@ async function addTaskCallback(e) {
 
     if (todo_name != '') {
         let task = await tasks_service.add({ text: todo_name, done: false });
-        todos.content.push(task);
+        todos.value.push(task);
     }
 }
 
@@ -141,16 +138,16 @@ function createElementItem(listItemHelper) {
         var index = listItemHelper.getListItemIndex(itemElement);
         if (index == -1) return;
 
-        tasks_service.delete(todos.content[index].task_id);
-        todos.content.splice(index, 1);
+        tasks_service.delete(todos.value[index].task_id);
+        todos.value.splice(index, 1);
     });
 
     checkbox.addEventListener('change', async () => {
         var index = listItemHelper.getListItemIndex(itemElement);
         if (index == -1) return;
 
-        todos.updateItemValue(index, { done: checkbox.checked });
-        await tasks_service.update(todos.content[index]);
+        todos.value[index] = { ...todos.value[index], done: checkbox.checked };
+        await tasks_service.update(todos.value[index]);
     });
 
     return itemElement;
@@ -173,12 +170,3 @@ todos.value = await tasks_service.requestData();
 
 // Bind the todos collection to the root_list element, using the setElementItemValue and createElementItem functions
 bindToList(root_list, todos, setElementItemValue, createElementItem);
-
-/*
-$dom(add_todo_button)
-    .disabled(filter_input_not_empty);
-
-$dom(list_length_span)
-    .text(computed_length);
-
-*/
