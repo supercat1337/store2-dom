@@ -15,12 +15,14 @@
 6. [Utilities & Helpers](#utilities--helpers)
 7. [Global Options](#global-options)
 8. [TypeScript](#typescript)
-9. [Internal Mechanics & Implementation Details](#internal-mechanics--implementation-details)
+9. [Internal Mechanics & Implementation Details](#9-internal-mechanics--implementation-details)
     - [9.1. `autoDisconnect` Implementation](#91-autodisconnect-implementation)
     - [9.2. `bindToList` Internals](#92-bindtolist-internals)
-10. [Common Pitfalls for AI-Generated Code](#10-common-pitfalls-for-ai-generated-code)
-11. [Examples](#11-examples)
-12. [License](#license)
+10. [Working with `deepReactive`](#10-working-with-deepreactive-from-supercat1337store2-deep)
+11. [Common Pitfalls for AI-Generated Code](#11-common-pitfalls-for-ai-generated-code)
+12. [Examples](#12-examples)
+13. [Working with Deep Objects](#13-working-with-deep-objects)
+14. [License](#license)
 
 ---
 
@@ -238,7 +240,7 @@ import type {
 
 ---
 
-## Internal Mechanics & Implementation Details
+## 9. Internal Mechanics & Implementation Details
 
 ### 9.1. `autoDisconnect` Implementation
 
@@ -286,7 +288,6 @@ import type {
 - For large collections, prefer using collection mutation methods (`push`, `pop`, `splice`, `setItem`) over full array reassignment to avoid full rerenders.
 
 ---
-
 ## 10. Working with `deepReactive` (from `@supercat1337/store2-deep`)
 
 When using `store2-dom` together with `deepReactive`, follow this pattern to avoid confusion:
@@ -330,6 +331,7 @@ This approach is recommended for all projects that use `deepReactive` with DOM b
 
 ---
 
+
 ## 11. Common Pitfalls for AI-Generated Code
 
 When generating code that uses `store2-dom`, avoid these frequent mistakes:
@@ -370,12 +372,12 @@ By following these guidelines, AI-generated code will be efficient, safe, and co
 
 ---
 
-## Examples
+## 12. Examples
 
 ### Counter with controls
 
 ```javascript
-import { Store } from '@supercat1337/store2';
+import { Store, atom } from '@supercat1337/store2';
 import { bindToInput, bindToCheckbox, bindToCssClass, bindToShow } from '@supercat1337/store2-dom';
 
 const store = new Store();
@@ -433,7 +435,7 @@ controller.abort(); // automatically cleans up the binding
 
 ---
 
-## Working with Deep Objects
+## 13. Working with Deep Objects
 
 `store2-dom` follows the **immutable update** pattern for deep objects. To update nested fields, always create a new object reference.
 
@@ -458,6 +460,6 @@ See the main store2 README for detailed guidance.
 
 ---
 
-## License
+## 14. License
 
 MIT
