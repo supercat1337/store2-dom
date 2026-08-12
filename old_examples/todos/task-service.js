@@ -4,50 +4,52 @@
 
 class TaskService {
     #max_id = 0;
-
-    /** @type {Map<string, ItemData>}  */
-    #tasks = new Map;
+    /** @type {Map<string, ItemData>} */
+    #tasks = new Map();
 
     /**
-     * @param {{text:string; done:boolean}} data 
+     * @param {{text:string; done:boolean}} data
+     * @returns {Promise<ItemData>}
      */
     async add(data) {
-        let task_id = String(++this.#max_id);
-        let value = { ...data, task_id };
+        const task_id = String(++this.#max_id);
+        const value = { ...data, task_id };
         this.#tasks.set(task_id, value);
         return value;
     }
 
+    /**
+     * @returns {Promise<ItemData[]>}
+     */
     async requestData() {
         return Array.from(this.#tasks.values());
     }
 
     /**
-     * @param {string} task_id 
+     * @param {string} task_id
+     * @returns {Promise<boolean>}
      */
     async delete(task_id) {
-        if (this.#tasks.has(task_id)) {
-            return this.#tasks.delete(task_id);
-        }
-
-        return false;
+        return this.#tasks.delete(task_id);
     }
 
     /**
-     * @param {ItemData} task 
+     * @param {ItemData} task
+     * @returns {Promise<void>}
      */
     async update(task) {
-        if (!this.#tasks.has(task.task_id)) return;
-        this.#tasks.set(task.task_id, task);
+        if (this.#tasks.has(task.task_id)) {
+            this.#tasks.set(task.task_id, task);
+        }
     }
 }
 
-
-const tasks_service = new TaskService;
+const tasks_service = new TaskService();
 globalThis.tasks_service = tasks_service;
 
+// Pre-populate with 50 items
 for (let i = 1; i <= 50; i++) {
-    tasks_service.add({ text: `item ${i}`, done: false })
+    await tasks_service.add({ text: `item ${i}`, done: false });
 }
 
-export {tasks_service};
+export { tasks_service };

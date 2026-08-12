@@ -7,7 +7,7 @@ import {
     bindToText,
     getDiffs,
     ListItemHelper,
-    ListItemSetterDetails
+    ListItemUpdateContext
 } from '@supercat1337/store2-dom';
 
 // ============================================================
@@ -135,9 +135,9 @@ function createTodoItem(helper) {
 
 /**
  * @param {ListItemHelper} helper
- * @param {ListItemSetterDetails<Todo>} details
+ * @param {ListItemUpdateContext<Todo>} details
  */
-function todoItemSetter(helper, details) {
+function todoonUpdateItem(helper, details) {
     const li = details.itemElement;
     const checkbox = /** @type {HTMLInputElement} */ (li.querySelector('.todo-checkbox'));
     const textSpan = /** @type {HTMLSpanElement} */ (li.querySelector('.todo-text'));
@@ -157,7 +157,7 @@ function todoItemSetter(helper, details) {
     }
 }
 
-bindToList(todoListEl, filteredTodos, todoItemSetter, createTodoItem, { debounceTime: 0 });
+bindToList(todoListEl, filteredTodos, todoonUpdateItem, createTodoItem, { debounceTime: 0 });
 
 // ============================================================
 // 6. Начальные данные

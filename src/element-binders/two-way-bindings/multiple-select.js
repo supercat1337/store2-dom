@@ -1,4 +1,5 @@
 // @ts-check
+import { Collection } from '@supercat1337/store2';
 import { globalOptions } from '../../globalOptions.js';
 import { attachAbortSignal } from '../../utils/abort-helper.js';
 
@@ -10,6 +11,9 @@ import { attachAbortSignal } from '../../utils/abort-helper.js';
  * @returns {()=>void}
  */
 export function bindToSelectMultiple(selectElement, reactive, options = {}) {
+    if (!(reactive instanceof Collection)) {
+        throw new TypeError('bindToSelectMultiple expects a Collection<string>');
+    }
     const _options = Object.assign({}, globalOptions, { event: 'change' }, options);
     const { debounceTime, autoDisconnect, event: eventName, signal } = _options;
 
@@ -24,7 +28,9 @@ export function bindToSelectMultiple(selectElement, reactive, options = {}) {
     const changeHandler = () => {
         const selected = [];
         for (let i = 0; i < selectElement.options.length; i++) {
-            if (selectElement.options[i].selected) selected.push(selectElement.options[i].value);
+            if (selectElement.options[i].selected) {
+                selected.push(selectElement.options[i].value);
+            }
         }
         reactive.value = selected;
     };

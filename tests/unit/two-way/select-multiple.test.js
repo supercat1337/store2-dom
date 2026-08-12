@@ -2,7 +2,7 @@
 import test from 'ava';
 import { JSDOM } from 'jsdom';
 import { bindToSelectMultiple } from '../../../src/element-binders/two-way-bindings/multiple-select.js';
-import { collection, sleep } from '@supercat1337/store2';
+import { atom, collection, sleep } from '@supercat1337/store2';
 
 function getSelectedValues(selectElement) {
     const selected = [];
@@ -116,4 +116,24 @@ test('bindToSelectMultiple auto-disconnects when element is removed', async t =>
     _collection.value = ['other'];
     await sleep(50);
     t.deepEqual(getSelectedValues(select), selectedBeforeRemove);
+});
+
+test('bindToSelectMultiple throws error when not given Collection', t => {
+    const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
+    const window = dom.window;
+    const document = window.document;
+    const select = document.createElement('select');
+    select.multiple = true;
+    const option = document.createElement('option');
+    option.value = 'test';
+    select.appendChild(option);
+    document.body.append(select);
+    const atomValue = atom('not collection');
+    t.throws(
+        () => {
+            bindToSelectMultiple(select, atomValue);
+        },
+        { message: /bindToSelectMultiple expects a Collection/ }
+    );
+    window.close();
 });

@@ -1,4 +1,5 @@
 // @ts-check
+import { Collection } from '@supercat1337/store2';
 import { globalOptions } from '../globalOptions.js';
 import { attachAbortSignal } from '../utils/abort-helper.js';
 
@@ -10,7 +11,12 @@ import { attachAbortSignal } from '../utils/abort-helper.js';
  * @returns {()=>void}
  */
 export function bindToCheckboxGroup(checkboxes, collection, options = {}) {
-    if (checkboxes.length === 0) return () => {};
+    if (!(collection instanceof Collection)) {
+        throw new TypeError('bindToCheckboxGroup expects a Collection<string>');
+    }
+    if (checkboxes.length === 0) {
+        return () => {};
+    }
 
     const _options = Object.assign({}, globalOptions, { event: 'change' }, options);
     const { debounceTime, autoDisconnect, event: eventName, signal } = _options;
@@ -25,7 +31,9 @@ export function bindToCheckboxGroup(checkboxes, collection, options = {}) {
     const changeHandler = () => {
         const selected = [];
         for (let i = 0; i < checkboxes.length; i++) {
-            if (checkboxes[i].checked) selected.push(checkboxes[i].value);
+            if (checkboxes[i].checked) {
+                selected.push(checkboxes[i].value);
+            }
         }
         collection.value = selected;
     };

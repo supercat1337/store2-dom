@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>ShallowReactive Demo</title>
+        <link rel="stylesheet" href="../../styles/demo.css" />
+        <style>
+            .card {
+                padding: 1rem;
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                background: #f9f9f9;
+                margin-bottom: 1rem;
+            }
+            .field {
+                margin: 0.5rem 0;
+            }
+            label {
+                font-weight: bold;
+                display: inline-block;
+                width: 80px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>ShallowReactive Demo</h1>
+            <p>
+                Using <code>shallowReactive</code> from store2 with
+                <code>store2-dom</code> bindings.
+            </p>
+
+            <div class="card">
+                <div class="field">
+                    <label>Name:</label>
+                    <span id="name-display"></span>
+                </div>
+                <div class="field">
+                    <label>Age:</label>
+                    <span id="age-display"></span>
+                </div>
+                <div class="field">
+                    <label>Role:</label>
+                    <span id="role-display"></span>
+                </div>
+            </div>
+
+            <div>
+                <button id="update-name-btn">Change Name</button>
+                <button id="update-age-btn">Increase Age</button>
+                <button id="update-role-btn">Change Role</button>
+                <button id="reset-btn">Reset</button>
+            </div>
+
+            <p><a href="../../index.html">← Back to Demos</a></p>
+        </div>
+
+        <script type="importmap">
+            {
+                "imports": {
+                    "@supercat1337/store2": "../../../node_modules/@supercat1337/store2/dist/store2.esm.bundle.js",
+                    "@supercat1337/store2-dom": "../../../dist/store2-dom.esm.js"
+                }
+            }
+        </script>
+        <script type="module" src="main.js"></script>
+    </body>
+</html>

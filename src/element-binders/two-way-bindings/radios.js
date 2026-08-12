@@ -1,4 +1,5 @@
 // @ts-check
+import { Atom } from '@supercat1337/store2';
 import { globalOptions } from '../../globalOptions.js';
 import { attachAbortSignal } from '../../utils/abort-helper.js';
 
@@ -10,6 +11,10 @@ import { attachAbortSignal } from '../../utils/abort-helper.js';
  * @returns {()=>void}
  */
 export function bindToRadioGroup(radios, reactive, options = {}) {
+    if (!(reactive instanceof Atom)) {
+        throw new TypeError('bindToRadioGroup expects an Atom<string>');
+    }
+
     if (radios.length === 0) {
         return () => {};
     }
@@ -55,13 +60,16 @@ export function bindToRadioGroup(radios, reactive, options = {}) {
         radios[i].addEventListener(eventName, changeHandler);
     }
 
-    const storeUnsubscribe = reactive.subscribe(details => {
-        if (autoDisconnect && !radios[0]?.isConnected) {
-            cleanup();
-            return;
-        }
-        setter(reactive.value);
-    }, {delay: debounceTime});
+    const storeUnsubscribe = reactive.subscribe(
+        _details => {
+            if (autoDisconnect && !radios[0]?.isConnected) {
+                cleanup();
+                return;
+            }
+            setter(reactive.value);
+        },
+        { delay: debounceTime }
+    );
 
     function cleanup() {
         for (let i = 0; i < radios.length; i++) {

@@ -1,87 +1,83 @@
 // @ts-check
 
-import { collection, atom, batch } from '@supercat1337/store2';
+import { autorun, collection } from '@supercat1337/store2';
 import {
     bindToList,
-    bindToText,
-    bindToCheckbox,
-    bindToCssClass,
     getDiffs,
+    getElement,
+    getElementById,
     ListItemHelper,
-    ListItemSetterDetails,
+    ListItemUpdateContext,
 } from '@supercat1337/store2-dom';
 
 // ============================================================
-// 1. Простой список с шаблоном
+// 1. Simple list with DOM template (first child is cloned)
 // ============================================================
 
-/** @type {HTMLUListElement} */
-const simpleListEl = /** @type {any} */ (document.getElementById('simple-list'));
-/** @type {HTMLSpanElement} */
-const simpleCountEl = /** @type {any} */ (document.getElementById('simple-count'));
+const simpleListEl = getElementById('simple-list', HTMLUListElement);
+const simpleCountEl = getElementById('simple-count', HTMLSpanElement);
 
 const simpleItems = collection(['Apple', 'Banana', 'Cherry']);
-console.log(simpleItems.value);
-console.log(Array.isArray(simpleItems.value));
-// Счётчик
-simpleItems.subscribe(() => {
-    simpleCountEl.innerText = `${simpleItems.value.length} items`;
+
+// Reactively update the item counter
+autorun(() => {
+    simpleCountEl.textContent = `${simpleItems.value.length} items`;
 });
 
-// Привязка списка
+// Bind the list – using the first <li> inside simpleListEl as the template
 bindToList(
     simpleListEl,
     simpleItems,
+    // onUpdateItem – called on creation and every update
     (helper, details) => {
-        const textSpan = details.itemElement.querySelector('.item-text');
-        if (textSpan) {
-            textSpan.innerText = details.value;
-        }
+        const textSpan = getElement('.item-text', HTMLSpanElement, details.itemElement);
+        textSpan.textContent = details.value;
 
+        // Add/update an index badge if it doesn't exist yet
         let indexSpan = details.itemElement.querySelector('.item-index');
         if (!indexSpan) {
             indexSpan = document.createElement('span');
             indexSpan.className = 'item-index';
             details.itemElement.prepend(indexSpan);
         }
-        indexSpan.innerText = String(details.index + 1);
+        indexSpan.textContent = String(details.index + 1);
     },
-    null,
+    null, // createItem – uses template from DOM (first child)
     { debounceTime: 0 }
 );
 
-// Обработчики кнопок – с защитой
-document.getElementById('add-item-btn')?.addEventListener('click', () => {
-    console.log(simpleItems.value);
-    const current = simpleItems.value;
-    simpleItems.value = [...current, `Item ${current.length + 1}`];
+// --- Controls ---
+const addItemBtn = getElementById('add-item-btn', HTMLButtonElement);
+addItemBtn.addEventListener('click', () => {
+    simpleItems.value.push(`Item ${simpleItems.value.length + 1}`);
 });
 
-document.getElementById('remove-last-btn')?.addEventListener('click', () => {
-    const current = Array.isArray(simpleItems.value) ? simpleItems.value : [];
-    if (current.length > 0) {
-        simpleItems.value = current.slice(0, -1);
-    }
+const removeLastBtn = getElementById('remove-last-btn', HTMLButtonElement);
+removeLastBtn.addEventListener('click', () => {
+    simpleItems.value.pop();
 });
 
-document.getElementById('reset-list-btn')?.addEventListener('click', () => {
+const resetListBtn = getElementById('reset-list-btn', HTMLButtonElement);
+resetListBtn.addEventListener('click', () => {
+    // Full replacement – triggers a complete rebuild (expected for reset)
     simpleItems.value = ['Apple', 'Banana', 'Cherry'];
 });
 
 // ============================================================
-// 2. Кастомный creator (без шаблона)
+// 2. Custom creator (no DOM template) – fully programmatic
 // ============================================================
 
-/** @type {HTMLDivElement} */
-const customListEl = /** @type {any} */ (document.getElementById('custom-list'));
+const customListEl = getElementById('custom-list', HTMLDivElement);
 
 const customItems = collection(['First', 'Second', 'Third']);
 
 /**
+ * createItem for custom list – creates a new DOM element with event listeners.
+ * Called only once per item.
  * @param {ListItemHelper} helper
  * @returns {HTMLElement}
  */
-function customCreator(helper) {
+function createCustomItem(helper) {
     const div = document.createElement('div');
     div.className = 'custom-item';
 
@@ -94,56 +90,46 @@ function customCreator(helper) {
     deleteBtn.textContent = '✕';
     div.appendChild(deleteBtn);
 
+    // Attach event listener once – uses helper to get the current index
+    deleteBtn.addEventListener('click', () => {
+        const index = helper.getListItemIndex(div);
+        if (index === -1) return;
+        customItems.value.splice(index, 1);
+    });
+
     return div;
 }
 
 /**
+ * onUpdateItem for custom list – updates the DOM when data changes.
+ * Called on every update (including initial render).
  * @param {ListItemHelper} helper
- * @param {ListItemSetterDetails<string>} details
+ * @param {ListItemUpdateContext<string>} details
  */
-function customSetter(helper, details) {
+function updateCustomItem(helper, details) {
     const div = details.itemElement;
-    const textSpan = div.querySelector('.custom-text');
-    if (textSpan) {
-        bindToText(textSpan, atom(details.value));
-    }
-
-    const deleteBtn = div.querySelector('.custom-delete');
-    if (deleteBtn) {
-        const newBtn = deleteBtn.cloneNode(true);
-        deleteBtn.parentNode?.replaceChild(newBtn, deleteBtn);
-        newBtn.addEventListener('click', () => {
-            const current = Array.isArray(customItems.value) ? customItems.value : [];
-            const index = details.index;
-            if (index >= 0 && index < current.length) {
-                const newArray = [...current];
-                newArray.splice(index, 1);
-                customItems.value = newArray;
-            }
-        });
-    }
+    const textSpan = getElement('.custom-text', HTMLSpanElement, div);
+    textSpan.textContent = details.value;
 }
 
-bindToList(customListEl, customItems, customSetter, customCreator, { debounceTime: 0 });
+bindToList(customListEl, customItems, updateCustomItem, createCustomItem, { debounceTime: 0 });
 
-document.getElementById('add-custom-btn')?.addEventListener('click', () => {
-    const current = Array.isArray(customItems.value) ? customItems.value : [];
-    customItems.value = [...current, `Custom ${Date.now()}`];
+// --- Controls ---
+const addCustomBtn = getElementById('add-custom-btn', HTMLButtonElement);
+addCustomBtn.addEventListener('click', () => {
+    customItems.value.push(`Custom ${Date.now()}`);
 });
 
-document.getElementById('remove-last-custom-btn')?.addEventListener('click', () => {
-    const current = Array.isArray(customItems.value) ? customItems.value : [];
-    if (current.length > 0) {
-        customItems.value = current.slice(0, -1);
-    }
+const removeLastCustomBtn = getElementById('remove-last-custom-btn', HTMLButtonElement);
+removeLastCustomBtn.addEventListener('click', () => {
+    customItems.value.pop();
 });
 
 // ============================================================
-// 3. Объектный список с getDiffs
+// 3. Object list with getDiffs – minimal DOM updates
 // ============================================================
 
-/** @type {HTMLUListElement} */
-const objectListEl = /** @type {any} */ (document.getElementById('object-list'));
+const objectListEl = getElementById('object-list', HTMLUListElement);
 
 /** @typedef {Object} TodoItem @property {number} id @property {string} name @property {boolean} done */
 
@@ -155,81 +141,85 @@ const objectItems = collection([
 ]);
 
 /**
+ * createItem for object list – creates a new list item and attaches event listeners.
  * @param {ListItemHelper} helper
- * @param {ListItemSetterDetails<TodoItem>} details
+ * @returns {HTMLElement}
  */
-function objectSetter(helper, details) {
+function createObjectItem(helper) {
+    const template = helper.getTemplate();
+    if (!template) throw new Error('No template');
+
+    const checkbox = getElement('.obj-done', HTMLInputElement, template);
+    const deleteBtn = getElement('.obj-delete', HTMLButtonElement, template);
+
+    // Change handler – updates the done status of the item
+    checkbox.addEventListener('change', () => {
+        const index = helper.getListItemIndex(template);
+        if (index === -1) return;
+        const current = objectItems.value;
+        if (index >= 0 && index < current.length) {
+            objectItems.value[index] = { ...current[index], done: checkbox.checked };
+        }
+    });
+
+    // Delete handler – removes the item from the collection
+    deleteBtn.addEventListener('click', () => {
+        const index = helper.getListItemIndex(template);
+        if (index === -1) return;
+        if (index >= 0 && index < objectItems.value.length) {
+            objectItems.value.splice(index, 1);
+        }
+    });
+
+    return template;
+}
+
+/**
+ * onUpdateItem for object list – updates only changed properties using getDiffs.
+ * @param {ListItemHelper} helper
+ * @param {ListItemUpdateContext<TodoItem>} details
+ */
+function updateObjectItem(helper, details) {
     const li = details.itemElement;
-    const checkbox = /** @type {HTMLInputElement} */ (li.querySelector('.obj-done'));
-    const nameSpan = /** @type {HTMLSpanElement} */ (li.querySelector('.obj-name'));
-    const idSpan = /** @type {HTMLSpanElement} */ (li.querySelector('.obj-id'));
-    const deleteBtn = /** @type {HTMLButtonElement} */ (li.querySelector('.obj-delete'));
+
+    const checkbox = getElement('.obj-done', HTMLInputElement, li);
+    const nameSpan = getElement('.obj-name', HTMLSpanElement, li);
+    const idSpan = getElement('.obj-id', HTMLSpanElement, li);
 
     const diffs = getDiffs(details.value, details.oldValue || {});
 
     if (diffs.name) {
-        bindToText(nameSpan, atom(details.value.name));
+        nameSpan.textContent = details.value.name;
     }
     if (diffs.done) {
         checkbox.checked = details.value.done;
-        const doneAtom = atom(details.value.done);
-        bindToCssClass(li, doneAtom, 'done');
+        li.classList.toggle('done', details.value.done);
     }
     if (diffs.id) {
-        bindToText(idSpan, atom(String(details.value.id)));
+        idSpan.textContent = String(details.value.id);
     }
-
-    // Обработчик изменения чекбокса
-    const newCheckbox = checkbox.cloneNode(true);
-    checkbox.parentNode?.replaceChild(newCheckbox, checkbox);
-    newCheckbox.addEventListener('change', () => {
-        const current = Array.isArray(objectItems.value) ? objectItems.value : [];
-        const index = details.index;
-        if (index >= 0 && index < current.length) {
-            const newObj = { ...current[index], done: newCheckbox.checked };
-            const newArray = [...current];
-            newArray[index] = newObj;
-            objectItems.value = newArray;
-        }
-    });
-
-    // Обработчик удаления
-    const newDeleteBtn = deleteBtn.cloneNode(true);
-    deleteBtn.parentNode?.replaceChild(newDeleteBtn, deleteBtn);
-    newDeleteBtn.addEventListener('click', () => {
-        const current = Array.isArray(objectItems.value) ? objectItems.value : [];
-        const index = details.index;
-        if (index >= 0 && index < current.length) {
-            const newArray = [...current];
-            newArray.splice(index, 1);
-            objectItems.value = newArray;
-        }
-    });
 }
 
-bindToList(objectListEl, objectItems, objectSetter, null, { debounceTime: 0 });
+bindToList(objectListEl, objectItems, updateObjectItem, createObjectItem, { debounceTime: 0 });
 
-// --- Кнопки управления ---
-document.getElementById('toggle-first-done')?.addEventListener('click', () => {
-    const current = Array.isArray(objectItems.value) ? objectItems.value : [];
-    if (current.length > 0) {
-        const newArray = [...current];
-        newArray[0] = { ...newArray[0], done: !newArray[0].done };
-        objectItems.value = newArray;
+// --- Controls ---
+const addObjectBtn = getElementById('add-object-btn', HTMLButtonElement);
+addObjectBtn.addEventListener('click', () => {
+    const newId =
+        objectItems.value.length > 0 ? Math.max(...objectItems.value.map(i => i.id)) + 1 : 1;
+    objectItems.value.push({ id: newId, name: `Task ${newId}`, done: false });
+});
+
+const toggleFirstDoneBtn = getElementById('toggle-first-done', HTMLButtonElement);
+toggleFirstDoneBtn.addEventListener('click', () => {
+    if (objectItems.value.length > 0) {
+        objectItems.value[0] = { ...objectItems.value[0], done: !objectItems.value[0].done };
     }
 });
 
-document.getElementById('update-first-name')?.addEventListener('click', () => {
-    const current = Array.isArray(objectItems.value) ? objectItems.value : [];
-    if (current.length > 0) {
-        const newArray = [...current];
-        newArray[0] = { ...newArray[0], name: `Updated-${Date.now()}` };
-        objectItems.value = newArray;
+const updateFirstNameBtn = getElementById('update-first-name', HTMLButtonElement);
+updateFirstNameBtn.addEventListener('click', () => {
+    if (objectItems.value.length > 0) {
+        objectItems.value[0] = { ...objectItems.value[0], name: `Updated-${Date.now()}` };
     }
-});
-
-document.getElementById('add-object-btn')?.addEventListener('click', () => {
-    const current = Array.isArray(objectItems.value) ? objectItems.value : [];
-    const newId = current.length > 0 ? Math.max(...current.map(i => i.id)) + 1 : 1;
-    objectItems.value = [...current, { id: newId, name: `Task ${newId}`, done: false }];
 });

@@ -1,4 +1,4 @@
-// src/types.d.ts
+import { Atom, Collection, Computed, ReactiveItem } from '@supercat1337/store2';
 
 // ========== Options ==========
 export interface BinderOptions {
@@ -41,26 +41,5 @@ export interface BindToListOptions extends BinderOptions {
 }
 
 // ========== List helpers ==========
-export class ListItemHelper {
-    constructor(template_element?: HTMLElement);
-    hasTemplate(): boolean;
-    getTemplate(): HTMLElement | null;
-    getListItemIndex(element: HTMLElement): number;
-    getListItem(element: HTMLElement, attr_name?: string): HTMLElement | null;
-    getDiffs<T extends Record<string, any>>(
-        new_object: T,
-        old_object: any,
-        custom_compare_function?: (a: any, b: any) => boolean
-    ): { [K in keyof T]: boolean };
-}
 
 export type TypeItemCreator = (listItemHelper: ListItemHelper) => HTMLElement;
-
-export class ListItemSetterDetails<T = any> {
-    itemElement: HTMLElement;
-    index: number;
-    value: T;
-    oldValue: any;
-    length: number;
-    constructor(itemElement: HTMLElement, index: number, value: T, oldValue: any, length: number);
-}

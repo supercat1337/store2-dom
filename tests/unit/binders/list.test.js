@@ -1,7 +1,7 @@
 // @ts-check
 import test from 'ava';
 import { JSDOM } from 'jsdom';
-import { bindToList, ListItemHelper, ListItemSetterDetails, getDiffs } from '../../../src/index.js';
+import { bindToList, ListItemHelper, ListItemUpdateContext, getDiffs } from '../../../src/index.js';
 import { collection, sleep } from '@supercat1337/store2';
 
 test('bindToList with custom elementItemCreator (no template)', async t => {

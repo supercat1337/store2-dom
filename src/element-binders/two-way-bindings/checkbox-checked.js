@@ -1,4 +1,5 @@
 // @ts-check
+import { Atom } from '@supercat1337/store2';
 import { globalOptions } from '../../globalOptions.js';
 import { attachAbortSignal } from '../../utils/abort-helper.js';
 
@@ -10,6 +11,10 @@ import { attachAbortSignal } from '../../utils/abort-helper.js';
  * @returns {()=>void}
  */
 export function bindToCheckbox(checkbox, reactiveItem, options = {}) {
+    if (!(reactiveItem instanceof Atom)) {
+        throw new TypeError('bindToCheckbox expects an Atom<boolean>');
+    }
+
     const _options = Object.assign({}, globalOptions, { event: 'change' }, options);
     const { debounceTime, autoDisconnect, event: eventName, signal } = _options;
 
@@ -26,7 +31,7 @@ export function bindToCheckbox(checkbox, reactiveItem, options = {}) {
     checkbox.addEventListener(eventName, changeHandler);
 
     const storeUnsubscribe = reactiveItem.subscribe(
-        details => {
+        _details => {
             if (autoDisconnect && !checkbox.isConnected) {
                 cleanup();
                 return;

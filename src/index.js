@@ -7,8 +7,10 @@ import { bindToShow } from './element-binders/show.js';
 import { bindToCssClass } from './element-binders/css-class.js';
 import { bindToCheckbox } from './element-binders/two-way-bindings/checkbox-checked.js';
 import { bindToInput } from './element-binders/two-way-bindings/input-value.js';
-import { bindToList, ListItemHelper, ListItemSetterDetails } from './element-binders/list.js';
+import { bindToList, ListItemHelper, ListItemUpdateContext } from './element-binders/list.js';
 import { getDiffs } from './utils/helpers.js';
+import { getElement, getElementById } from './utils/getElement.js';
+
 import { bindToProperty } from './element-binders/property.js';
 import { bindToDisabled } from './element-binders/disabled.js';
 import { bindToCheckboxGroup } from './element-binders/checkboxes-values.js';
@@ -31,7 +33,7 @@ export {
     bindToText,
     bindToList,
     ListItemHelper,
-    ListItemSetterDetails,
+    ListItemUpdateContext,
     getDiffs,
     bindToDisabled,
     bindToCssClass,
@@ -42,4 +44,6 @@ export {
     bindToStyle,
     bindToDataset,
     globalOptions,
+    getElement,
+    getElementById,
 };

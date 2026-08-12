@@ -1,30 +1,50 @@
 // @ts-check
 
 import { atom, computed } from '@supercat1337/store2';
-import { bindToCheckbox, bindToClassString, bindToShow } from '../../src/index.js';
+import {
+    bindToCheckbox,
+    bindToClassString,
+    bindToShow,
+    getElementById,
+} from '@supercat1337/store2-dom';
 
-var show_checkbox = /** @type {HTMLInputElement} */ (document.querySelector('#show_checkbox'));
-var make_danger_checkbox = /** @type {HTMLInputElement} */ (
-    document.querySelector('#make_danger_checkbox')
-);
+// ==========================================
+// 1. DOM Elements
+// ==========================================
 
-var block_element = /** @type {HTMLElement} */ (document.querySelector('#sample_div'));
-var text_element = /** @type {HTMLElement} */ (document.querySelector('#sample_text'));
+const showCheckbox = getElementById('show_checkbox', HTMLInputElement);
+const dangerCheckbox = getElementById('make_danger_checkbox', HTMLInputElement);
+const blockElement = getElementById('sample_div', HTMLDivElement);
+const textElement = getElementById('sample_text', HTMLSpanElement);
 
-let show_atom = atom(false);
-let show_atom_computed = computed(() => {
-    return show_atom.value;
-});
+// ==========================================
+// 2. Reactive State
+// ==========================================
 
-let danger_atom = atom(false);
+// Atom controlling visibility of the block
+const showAtom = atom(false);
 
-let danger_classname_computed = computed(() => {
-    return danger_atom.value ? 'text-danger display-6' : '';
-});
+// Computed that mirrors showAtom – demonstrates usage with bindToShow
+const showComputed = computed(() => showAtom.value);
 
-bindToCheckbox(show_checkbox, show_atom);
-bindToShow(block_element, show_atom_computed);
+// Atom controlling the "danger" class
+const dangerAtom = atom(false);
 
-bindToCheckbox(make_danger_checkbox, danger_atom);
+// Computed that returns class names based on dangerAtom
+const dangerClassNameComputed = computed(() => (dangerAtom.value ? 'text-danger display-6' : ''));
 
-bindToClassString(text_element, danger_classname_computed);
+// ==========================================
+// 3. Bindings
+// ==========================================
+
+// Two-way binding: checkbox ↔ showAtom
+bindToCheckbox(showCheckbox, showAtom);
+
+// One-way binding: showComputed → element visibility (adds/removes 'd-none' class)
+bindToShow(blockElement, showComputed);
+
+// Two-way binding: checkbox ↔ dangerAtom
+bindToCheckbox(dangerCheckbox, dangerAtom);
+
+// One-way binding: dangerClassNameComputed → element.className
+bindToClassString(textElement, dangerClassNameComputed);

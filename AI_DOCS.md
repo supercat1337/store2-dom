@@ -152,40 +152,36 @@ These sync DOM events back to the reactive item.
 
 All two‑way bindings return an `Unsubscriber` function that removes event listeners and store subscriptions. They also respect `autoDisconnect`.
 
+**Important:** All two-way bindings enforce that the reactive item is of the correct type:
+
+- `bindToInput`, `bindToCheckbox`, `bindToRadioGroup`, `bindToSelect` require an `Atom`.
+- `bindToCheckboxGroup`, `bindToSelectMultiple` require a `Collection`.
+  If a `Computed` or other type is passed, a `TypeError` is thrown.
+
 ---
 
 ## List Binding (`bindToList`)
 
-### `bindToList(container, collection, itemSetter, itemCreator?, options?)`
+### `bindToList(container, reactiveItem, onUpdateItem, createItem?, options?)`
 
 - `container: HTMLElement` – the element that will contain the list items.
-- `collection: Collection<T>` – reactive array.
-- `itemSetter: (helper: ListItemHelper, details: ListItemSetterDetails<T>) => void` – called for each item to update its DOM content.
-- `itemCreator?: (helper: ListItemHelper) => HTMLElement` – optional custom element factory. If not provided, the first child of `container` is cloned as template.
-- `options: { debounceTime?, autoDisconnect? }`
+- `reactiveItem: Collection<T> | Computed<T[]>` – reactive array (must have a `.value` property).
+- `onUpdateItem: (helper: ListItemHelper, details: ListItemUpdateContext<T>) => void` – called for each item when it is created or updated. Use `helper.getDiffs()` to apply minimal DOM changes.
+- `createItem?: (helper: ListItemHelper) => HTMLElement` – optional custom element factory. If not provided, the first child of `container` is cloned as a template.
+- `options: { debounceTime?, autoDisconnect?, signal? }`
 
 **How it works:**
 
-- When `collection.value` changes, the DOM is updated minimally.
-- For `eventType === 'set'` on an index, `itemSetter` is called with the new value and the existing DOM element.
-- For changes in length, elements are added or removed at the end.
-- Full replacement (`property === null`) triggers a full rerender.
+- When the reactive array changes, `bindToList` updates the DOM minimally.
+- For a single `set` event on an index, `onUpdateItem` is called with the new value and the existing DOM element.
+- For `add`/`remove` operations (e.g., `push`, `pop`, `splice`), elements are inserted or removed and their `item-index` attributes are updated.
+- Full array replacement (e.g., `collection.value = [...]`) triggers a complete rebuild.
+- `createItem` is used to generate new DOM nodes when needed.
 
-### `ListItemHelper` methods:
+**Performance considerations:**
 
-- `hasTemplate(): boolean`
-- `getTemplate(): HTMLElement | null` – returns a clone of the template.
-- `getListItemIndex(element: HTMLElement): number`
-- `getListItem(element: HTMLElement, attrName?: string): HTMLElement | null`
-- `getDiffs(newObj, oldObj, compareFn?)` – same as standalone `getDiffs`.
-
-### `ListItemSetterDetails<T>` properties:
-
-- `itemElement: HTMLElement`
-- `index: number`
-- `value: T`
-- `oldValue: any`
-- `length: number`
+- Prefer mutation methods (`push`, `pop`, `splice`, index assignment) over full array reassignment to avoid full rebuilds.
+- Use `helper.getDiffs()` inside `onUpdateItem` to update only changed properties.
 
 ---
 
@@ -193,14 +189,34 @@ All two‑way bindings return an `Unsubscriber` function that removes event list
 
 ### `getDiffs(newObject, oldObject, customCompareFunction?)`
 
-- Returns an object with the same keys as `newObject`, value `true` if the property is new or changed.
-- `customCompareFunction` receives `(a, b)` and should return `true` if they are **equal**.
+Returns an object with the same keys as `newObject`, value `true` if the property is new or changed.
+
+### `getElement(selector, type?, root?)`
+
+Finds the first element matching a CSS selector. Throws if not found.
+
+- `selector: string` – CSS selector.
+- `type?: new (...args: any[]) => T` – optional constructor for type checking.
+- `root?: Document | Element` – root element to search within (default `document`).
+
+```js
+const input = getElement('#my-input', HTMLInputElement);
+const span = getElement('.my-span', HTMLSpanElement, container);
+```
+
+### `getElementById(id, type?, root?)`
+
+Same as `getElement`, but by ID.
+
+```js
+const div = getElementById('my-div', HTMLDivElement);
+```
 
 ### `globalOptions`
 
 Global defaults object that you can mutate:
 
-```javascript
+```js
 import { globalOptions } from '@supercat1337/store2-dom';
 globalOptions.debounceTime = 100;
 globalOptions.autoDisconnect = false;
@@ -216,7 +232,7 @@ The package includes `types.d.ts` – no additional configuration needed. Use JS
 import type {
     BinderOptions,
     ListItemHelper,
-    ListItemSetterDetails,
+    ListItemUpdateContext,
 } from '@supercat1337/store2-dom';
 ```
 
@@ -246,8 +262,8 @@ import type {
 `bindToList` maintains an internal map of index → DOM element. When the collection changes, it reacts to specific mutation events:
 
 - **`eventType === 'set'`** (value at a specific index changed):
-    - Calls `itemSetter` with the updated value and the existing DOM element.
-    - `helper.getDiffs(newValue, oldValue)` is typically used inside `itemSetter` to determine which DOM properties need updating.
+    - Calls `onUpdateItem` with the updated value and the existing DOM element.
+    - `helper.getDiffs(newValue, oldValue)` is typically used inside `onUpdateItem` to determine which DOM properties need updating.
     - DOM is **not** recreated, only mutated in place.
 
 - **`eventType === 'add'`** (items inserted at a specific index):
@@ -266,7 +282,7 @@ import type {
 
 **Performance considerations:**
 
-- `bindToList` uses a **simple diff** strategy based on index and the `getDiffs` helper. It does not use a virtual DOM; instead, it relies on the developer's `itemSetter` to efficiently update DOM nodes.
+- `bindToList` uses a **simple diff** strategy based on index and the `getDiffs` helper. It does not use a virtual DOM; instead, it relies on the developer's `onUpdateItem` to efficiently update DOM nodes.
 - For large collections, prefer using collection mutation methods (`push`, `pop`, `splice`, `setItem`) over full array reassignment to avoid full rerenders.
 
 ---
@@ -343,7 +359,7 @@ When generating code that uses `store2-dom`, avoid these frequent mistakes:
    ✅ Pass the `collection` directly to `bindToList`.
 
 7. **Not using `getDiffs` to minimize DOM updates**  
-   ❌ Updating all DOM properties on every `itemSetter` call, even when only one field changed.  
+   ❌ Updating all DOM properties on every `onUpdateItem` call, even when only one field changed.  
    ✅ Use `helper.getDiffs(newValue, oldValue)` to conditionally update only changed parts.
 
 8. **Using `bindToHtml` with untrusted content**  

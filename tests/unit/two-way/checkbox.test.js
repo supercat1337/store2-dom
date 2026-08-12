@@ -2,7 +2,7 @@
 import test from 'ava';
 import { JSDOM } from 'jsdom';
 import { bindToCheckbox } from '../../../src/element-binders/two-way-bindings/checkbox-checked.js';
-import { atom } from '@supercat1337/store2';
+import { atom, computed } from '@supercat1337/store2';
 
 test('bindToCheckbox two-way binding updates checkbox.checked from atom', t => {
     const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
@@ -68,4 +68,22 @@ test('bindToCheckbox auto-disconnects when element is removed from DOM', t => {
     checkbox.remove();
     _atom.value = false;
     t.true(checkbox.checked);
+});
+
+test('bindToCheckbox throws error when not given Atom', t => {
+    const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
+    const window = dom.window;
+    const document = window.document;
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    document.body.append(checkbox);
+    const atomValue = atom(0);
+    const computedValue = computed(() => atomValue.value);
+    t.throws(
+        () => {
+            bindToCheckbox(checkbox, computedValue);
+        },
+        { message: /bindToCheckbox expects an Atom/ }
+    );
+    window.close();
 });

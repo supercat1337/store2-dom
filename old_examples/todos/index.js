@@ -1,172 +1,163 @@
 // @ts-check
 
-/*
-This code is an example of a simple to-do list application. 
-It uses a library called Store from the @supercat1337/store2 package, which is used for creating and managing state in JavaScript applications.
-
-The code sets up a TaskService object, which is responsible for managing the to-do items. 
-It adds a set of initial to-do items to the service.
-
-The code also creates a Store object, which is used to manage the state of the application. 
-It sets up event listeners for various user interactions, such as adding a new to-do item and filtering the list of items.
-
-Overall, this code sets up the basic structure of a to-do list application, including the data management and presentation layers.
-*/
-
-import { atom, collection, computed, Store } from '@supercat1337/store2';
+import { atom, collection, computed } from '@supercat1337/store2';
 import { tasks_service } from './task-service.js';
 
-import { bindToList, bindToText, bindToDisabled, bindToInput } from './../../src/index.js';
-import { ListItemHelper, ListItemSetterDetails } from '../../src/index.js';
+import {
+    bindToDisabled,
+    bindToInput,
+    bindToList,
+    bindToText,
+    getElement,
+    ListItemHelper,
+    ListItemUpdateContext,
+} from '@supercat1337/store2-dom';
 
-// Model
+// ============================================================
+// 1. State (Model)
+// ============================================================
 
-// creates a collection in the store to store the to-do items
-const todos = collection(/** @type {import("./task-service.js").ItemData[]} */ ([]));
+/** @type {import('@supercat1337/store2').Collection<import('./task-service.js').ItemData>} */
+const todos = collection([]);
 
-// creates a computed value that returns the length of the todos collection
-const computed_length = computed(() => {
-    return todos.value.length.toString();
-});
+/** @type {import('@supercat1337/store2').Computed<string>} */
+const todosLength = computed(() => String(todos.value.length));
 
-// creates an atom to store the value of the filter input field
-const filter_input_atom = atom('');
+/** @type {import('@supercat1337/store2').Atom<string>} */
+const filterInput = atom('');
 
-// creates a computed value that returns true if the filter_input_atom is not empty
-const filter_input_not_empty = computed(() => {
-    return filter_input_atom.value.length > 0;
-});
+/** @type {import('@supercat1337/store2').Computed<boolean>} */
+const isFilterActive = computed(() => filterInput.value.length > 0);
 
-// View
-const root_list = /** @type {HTMLElement} */ (document.querySelector('[ref=root_list]'));
-const add_todo_button = /** @type {HTMLButtonElement} */ (
-    document.querySelector('[ref=add_todo_button]')
-);
-const add_todo_input = /** @type {HTMLInputElement} */ (
-    document.querySelector('[ref=add_todo_input]')
-);
-const filter_todo_input = /** @type {HTMLInputElement} */ (
-    document.querySelector('[ref=filter_todo_input]')
-);
-const list_length_span = /** @type {HTMLSpanElement} */ (
-    document.querySelector('[ref=list_length_span]')
-);
+// ============================================================
+// 2. DOM Elements (View)
+// ============================================================
 
-// Presenter
+const rootList = getElement('[ref="root_list"]', HTMLUListElement);
+const addTodoButton = getElement('[ref="add_todo_button"]', HTMLButtonElement);
+const addTodoInput = getElement('[ref="add_todo_input"]', HTMLInputElement);
+const filterTodoInput = getElement('[ref="filter_todo_input"]', HTMLInputElement);
+const listLengthSpan = getElement('[ref="list_length_span"]', HTMLSpanElement);
+
+// ============================================================
+// 3. Presenter (Event Handlers)
+// ============================================================
 
 /**
+ * Handles adding a new todo (click or Enter key).
  * @param {Event|KeyboardEvent} e
  */
 async function addTaskCallback(e) {
-    if (e instanceof KeyboardEvent) {
-        if (e.key != 'Enter') return;
-    }
+    if (e instanceof KeyboardEvent && e.key !== 'Enter') return;
 
-    // Get the trimmed value of the add_todo_input element
-    var todo_name = add_todo_input.value.trim();
-    // Clear the add_todo_input element
-    add_todo_input.value = '';
+    const todoName = addTodoInput.value.trim();
+    addTodoInput.value = '';
 
-    if (todo_name != '') {
-        let task = await tasks_service.add({ text: todo_name, done: false });
+    if (todoName) {
+        const task = await tasks_service.add({ text: todoName, done: false });
         todos.value.push(task);
     }
 }
 
-add_todo_button.addEventListener('click', addTaskCallback);
-add_todo_input.addEventListener('keydown', addTaskCallback);
+addTodoButton.addEventListener('click', addTaskCallback);
+addTodoInput.addEventListener('keydown', addTaskCallback);
 
 /**
- * This function is called when the user types in the filter_todo_input text box.
- * It requests the data from the tasks_service, and if the filter_text is not empty,
- * it filters the data by the filter_text, and sets the todos.value to the filtered array.
- * If the filter_text is empty, it sets the todos.value to the requestData.
+ * Filters the todo list based on the filter input text.
  */
 async function filterTodos() {
-    let filter_text = filter_todo_input.value;
-    let requestData = await tasks_service.requestData();
+    const filterText = filterTodoInput.value;
+    const allTasks = await tasks_service.requestData();
 
-    if (filter_text == '') {
-        todos.value = requestData;
+    if (!filterText) {
+        todos.value = allTasks;
     } else {
-        let filtered_arr = requestData.filter(item => item.text.includes(filter_text));
-        todos.value = filtered_arr;
+        const filtered = allTasks.filter(item => item.text.includes(filterText));
+        todos.value = filtered;
     }
 }
 
-// when the user types in the filter_todo_input text box, it calls the filterTodos function
-filter_todo_input.addEventListener('input', filterTodos);
+filterTodoInput.addEventListener('input', filterTodos);
+
+// ============================================================
+// 4. List Binding Helpers
+// ============================================================
 
 /**
- * Sets the text and done state of a list item element, given a list item helper and a details object.
- * @param {ListItemHelper} listItemHelper
- * @param {ListItemSetterDetails<import("./task-service.js").ItemData>} details
+ * Updates an existing list item when its data changes.
+ * @param {ListItemHelper} helper
+ * @param {ListItemUpdateContext<import('./task-service.js').ItemData>} details
  */
-function setElementItemValue(listItemHelper, details) {
-    const text = /** @type {HTMLSpanElement} */ (details.itemElement.querySelector('[ref=text]'));
+function onUpdateItem(helper, details) {
+    const itemElement = details.itemElement;
+    const textSpan = /** @type {HTMLSpanElement} */ (itemElement.querySelector('[ref="text"]'));
     const checkbox = /** @type {HTMLInputElement} */ (
-        details.itemElement.querySelector('[ref=checkbox]')
+        itemElement.querySelector('[ref="checkbox"]')
     );
 
-    var diffs = listItemHelper.getDiffs(details.value, details.oldValue);
+    const diffs = helper.getDiffs(details.value, details.oldValue);
 
     if (diffs.text) {
-        text.innerText = details.value.text;
+        textSpan.textContent = details.value.text;
     }
-
     if (diffs.done) {
         checkbox.checked = details.value.done;
-        text.classList.toggle('text-decoration-line-through', details.value.done);
+        textSpan.classList.toggle('text-decoration-line-through', details.value.done);
     }
 }
 
 /**
- * Creates a new list item element, given a list item helper, and adds event listeners to the delete button and the checkbox.
- * @param {ListItemHelper} listItemHelper
+ * Creates a new list item element with event listeners.
+ * @param {ListItemHelper} helper
  * @returns {HTMLElement}
  */
-function createElementItem(listItemHelper) {
-    let itemElement = listItemHelper.getTemplate();
+function createItem(helper) {
+    const itemElement = helper.getTemplate();
     if (!itemElement) throw new Error('No template found');
 
-    const delete_button = /** @type {HTMLButtonElement} */ (
-        itemElement.querySelector('[ref=delete_button]')
+    const deleteBtn = /** @type {HTMLButtonElement} */ (
+        itemElement.querySelector('[ref="delete_button"]')
     );
-    const checkbox = /** @type {HTMLInputElement} */ (itemElement.querySelector('[ref=checkbox]'));
+    const checkbox = /** @type {HTMLInputElement} */ (
+        itemElement.querySelector('[ref="checkbox"]')
+    );
 
-    delete_button.addEventListener('click', () => {
-        var index = listItemHelper.getListItemIndex(itemElement);
-        if (index == -1) return;
+    deleteBtn.addEventListener('click', () => {
+        const index = helper.getListItemIndex(itemElement);
+        if (index === -1) return;
 
-        tasks_service.delete(todos.value[index].task_id);
-        todos.value.splice(index, 1);
+        const task = todos.value[index];
+        if (task) {
+            tasks_service.delete(task.task_id);
+            todos.value.splice(index, 1);
+        }
     });
 
     checkbox.addEventListener('change', async () => {
-        var index = listItemHelper.getListItemIndex(itemElement);
-        if (index == -1) return;
+        const index = helper.getListItemIndex(itemElement);
+        if (index === -1) return;
 
-        todos.value[index] = { ...todos.value[index], done: checkbox.checked };
-        await tasks_service.update(todos.value[index]);
+        const current = todos.value[index];
+        if (current) {
+            const updated = { ...current, done: checkbox.checked };
+            todos.value[index] = updated;
+            await tasks_service.update(updated);
+        }
     });
 
     return itemElement;
 }
 
-// Init
+// ============================================================
+// 5. Bindings
+// ============================================================
 
-// Binds the computed length of the todos collection to the text of the list length span element.
-bindToText(list_length_span, computed_length);
+bindToText(listLengthSpan, todosLength);
+bindToInput(filterTodoInput, filterInput);
+bindToDisabled(addTodoButton, isFilterActive);
+bindToDisabled(addTodoInput, isFilterActive);
 
-// Bind the filter_input_atom to the value of the filter_todo_input element
-bindToInput(filter_todo_input, filter_input_atom);
-
-// Disable the add_todo_button and add_todo_input when the filter_input_not_empty atom is true
-bindToDisabled(add_todo_button, filter_input_not_empty);
-bindToDisabled(add_todo_input, filter_input_not_empty);
-
-// Set the initial value of the todos collection to the data from the tasks_service
+// Load initial data and bind the list
 todos.value = await tasks_service.requestData();
 
-// Bind the todos collection to the root_list element, using the setElementItemValue and createElementItem functions
-bindToList(root_list, todos, setElementItemValue, createElementItem);
+bindToList(rootList, todos, onUpdateItem, createItem, { debounceTime: 0 });

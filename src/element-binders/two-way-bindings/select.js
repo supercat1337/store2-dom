@@ -1,6 +1,7 @@
 // @ts-check
 import { globalOptions } from './../../globalOptions.js';
 import { attachAbortSignal } from '../../utils/abort-helper.js';
+import { Atom } from '@supercat1337/store2';
 
 /**
  * Two-way binding for a single-select element with a string Atom.
@@ -10,6 +11,10 @@ import { attachAbortSignal } from '../../utils/abort-helper.js';
  * @returns {()=>void}
  */
 export function bindToSelect(selectElement, reactive, options = {}) {
+    if (!(reactive instanceof Atom)) {
+        throw new TypeError('bindToSelect expects an Atom<string>');
+    }
+
     const _options = Object.assign({}, globalOptions, { event: 'change' }, options);
     const { debounceTime, autoDisconnect, event: eventName, signal } = _options;
 
@@ -27,7 +32,7 @@ export function bindToSelect(selectElement, reactive, options = {}) {
     selectElement.addEventListener(eventName, callback);
 
     const storeUnsubscribe = reactive.subscribe(
-        details => {
+        _details => {
             if (autoDisconnect && !selectElement.isConnected) {
                 cleanup();
                 return;

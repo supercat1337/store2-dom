@@ -6,8 +6,6 @@ import { attachAbortSignal } from '../utils/abort-helper.js';
 
 const itemIndexAttrName = 'item-index';
 
-/** @typedef {(listItemHelper:ListItemHelper)=>HTMLElement} TypeItemCreator */
-
 /**
  * @template T
  */
@@ -18,11 +16,11 @@ class ElementList {
     /** @type {import("@supercat1337/store2").ReactiveItem & { value: T[] }} */
     #reactiveItem;
 
-    /** @type {(listItemHelper:ListItemHelper, details:ListItemSetterDetails<T>)=>void} */
-    #itemValueSetter;
+    /** @type {(listItemHelper:ListItemHelper, details:ListItemUpdateContext<T>)=>void} */
+    #onUpdateItem;
 
-    /** @type {TypeItemCreator} */
-    #elementItemCreator;
+    /** @type {import('../types.d.ts').TypeItemCreator} */
+    #createItem;
 
     /** @type {ListItemHelper} */
     #listItemHelper;
@@ -31,21 +29,21 @@ class ElementList {
      * Initializes the ElementList instance.
      * @param {import("@supercat1337/store2").ReactiveItem & { value: T[] }} reactiveItem
      * @param {HTMLElement} element
-     * @param {(listItemHelper:ListItemHelper, details:ListItemSetterDetails<T>)=>void} itemValueSetter
-     * @param {TypeItemCreator|null} [elementItemCreator]
+     * @param {(listItemHelper:ListItemHelper, details:ListItemUpdateContext<T>)=>void} onUpdateItem
+     * @param {import('../types.d.ts').TypeItemCreator|null} [createItem]
      */
-    constructor(reactiveItem, element, itemValueSetter, elementItemCreator) {
+    constructor(reactiveItem, element, onUpdateItem, createItem = null) {
         this.#reactiveItem = reactiveItem;
         this.#rootListElement = element;
 
         this.#listItemHelper = new ListItemHelper(this.#loadTemplate());
         this.#rootListElement.innerHTML = '';
 
-        if (elementItemCreator) {
-            this.#elementItemCreator = () => elementItemCreator(this.#listItemHelper);
+        if (createItem) {
+            this.#createItem = () => createItem(this.#listItemHelper);
         } else {
             if (this.#listItemHelper.hasTemplate()) {
-                this.#elementItemCreator = () => {
+                this.#createItem = () => {
                     const itemElement = /** @type {HTMLElement} */ (
                         this.#listItemHelper.getTemplate()
                     );
@@ -53,11 +51,11 @@ class ElementList {
                     return itemElement;
                 };
             } else {
-                throw new Error('elementItemCreator or template is not set');
+                throw new Error('createItem or template is not set');
             }
         }
 
-        this.#itemValueSetter = itemValueSetter;
+        this.#onUpdateItem = onUpdateItem;
         // Initial render
         this.replaceAll(this.#reactiveItem.value);
     }
@@ -82,16 +80,18 @@ class ElementList {
      */
     updateItem(index, value, oldValue) {
         const listItem = /** @type {HTMLElement} */ (this.#rootListElement.children.item(index));
-        if (!listItem) return;
+        if (!listItem) {
+            return;
+        }
         listItem.setAttribute(itemIndexAttrName, String(index));
-        const details = new ListItemSetterDetails(
+        const details = new ListItemUpdateContext(
             listItem,
             index,
             value,
             oldValue,
             this.#reactiveItem.value.length
         );
-        this.#itemValueSetter(this.#listItemHelper, details);
+        this.#onUpdateItem(this.#listItemHelper, details);
     }
 
     /**
@@ -100,7 +100,7 @@ class ElementList {
      * @param {T} value
      */
     insertItem(index, value) {
-        const newElement = this.#elementItemCreator(this.#listItemHelper);
+        const newElement = this.#createItem(this.#listItemHelper);
         const nextSibling = this.#rootListElement.children.item(index);
         if (nextSibling) {
             this.#rootListElement.insertBefore(newElement, nextSibling);
@@ -117,7 +117,9 @@ class ElementList {
      */
     removeItem(index) {
         const item = this.#rootListElement.children.item(index);
-        if (!item) return;
+        if (!item) {
+            return;
+        }
         item.remove();
         this.#updateIndexes(index);
     }
@@ -129,11 +131,11 @@ class ElementList {
     replaceAll(arr) {
         this.#rootListElement.innerHTML = '';
         for (let i = 0; i < arr.length; i++) {
-            const newElement = this.#elementItemCreator(this.#listItemHelper);
+            const newElement = this.#createItem(this.#listItemHelper);
             this.#rootListElement.append(newElement);
             newElement.setAttribute(itemIndexAttrName, String(i));
-            const details = new ListItemSetterDetails(newElement, i, arr[i], undefined, arr.length);
-            this.#itemValueSetter(this.#listItemHelper, details);
+            const details = new ListItemUpdateContext(newElement, i, arr[i], undefined, arr.length);
+            this.#onUpdateItem(this.#listItemHelper, details);
         }
     }
 
@@ -185,7 +187,7 @@ function getListItemIndex(element) {
 /**
  * @template T
  */
-export class ListItemSetterDetails {
+export class ListItemUpdateContext {
     /** @type {HTMLElement} */
     itemElement;
     /** @type {number} */
@@ -277,30 +279,24 @@ export class ListItemHelper {
  * @template T
  * @param {HTMLElement} listElement
  * @param {import("@supercat1337/store2").ReactiveItem & { value: T[] }} reactiveItem
- * @param {(listItemHelper:ListItemHelper, details:ListItemSetterDetails<T>) => void} itemValueSetter
- * @param {TypeItemCreator|null} [elementItemCreator]
+ * @param {(listItemHelper:ListItemHelper, details:ListItemUpdateContext<T>) => void} onUpdateItem
+ * @param {import('../types.d.ts').TypeItemCreator|null} [createItem]
  * @param {import("../types.d.ts").BindToListOptions} [options={}]
  * @returns {()=>void}
  */
 export function bindToList(
     listElement,
     reactiveItem,
-    itemValueSetter,
-    elementItemCreator,
+    onUpdateItem,
+    createItem = null,
     options = {}
 ) {
-    const elementListWrapper = new ElementList(
-        reactiveItem,
-        listElement,
-        itemValueSetter,
-        elementItemCreator
-    );
+    const elementListWrapper = new ElementList(reactiveItem, listElement, onUpdateItem, createItem);
     const _options = Object.assign({}, globalOptions, options);
     const { autoDisconnect, signal, debounceTime } = _options;
 
     const unsubscribe = reactiveItem.subscribe(
         updates => {
-
             if (autoDisconnect && !listElement.isConnected) {
                 unsubscribe();
                 return;
@@ -321,7 +317,7 @@ export function bindToList(
 
             // If there are multiple index updates, it's likely a splice or full replacement
             // Rebuild the entire list to keep it simple and correct.
-            if (updates.get("")) {
+            if (updates.get('')) {
                 elementListWrapper.replaceAll(reactiveItem.value);
                 return;
             }

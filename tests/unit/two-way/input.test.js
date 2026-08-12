@@ -2,7 +2,7 @@
 import test from 'ava';
 import { JSDOM } from 'jsdom';
 import { bindToInput } from '../../../src/element-binders/two-way-bindings/input-value.js';
-import { atom, sleep } from '@supercat1337/store2';
+import { atom, computed, sleep } from '@supercat1337/store2';
 
 test('bindToInput updates input.value from atom (text)', t => {
     const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
@@ -183,4 +183,23 @@ test('bindToInput with type="number" handles NaN value from atom when input alre
     // поле остаётся пустым (не меняется)
     t.is(input.value, '');
     t.true(isNaN(_atom.value));
+});
+
+test('bindToInput throws error when not given Atom', t => {
+    const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
+    const window = dom.window;
+    const document = window.document;
+    const input = document.createElement('input');
+    input.type = 'text';
+    document.body.append(input);
+    const atomValue = atom(0);
+    const computedValue = computed(() => atomValue.value);
+
+    t.throws(
+        () => {
+            bindToInput(input, computedValue);
+        },
+        { message: /bindToInput expects an Atom/ }
+    );
+    window.close();
 });

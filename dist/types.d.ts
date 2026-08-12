@@ -1,4 +1,4 @@
-// src/types.d.ts
+import { Atom, Collection, Computed, ReactiveItem } from '@supercat1337/store2';
 
 // ========== Options ==========
 export interface BinderOptions {
@@ -41,29 +41,8 @@ export interface BindToListOptions extends BinderOptions {
 }
 
 // ========== List helpers ==========
-export class ListItemHelper {
-    constructor(template_element?: HTMLElement);
-    hasTemplate(): boolean;
-    getTemplate(): HTMLElement | null;
-    getListItemIndex(element: HTMLElement): number;
-    getListItem(element: HTMLElement, attr_name?: string): HTMLElement | null;
-    getDiffs<T extends Record<string, any>>(
-        new_object: T,
-        old_object: any,
-        custom_compare_function?: (a: any, b: any) => boolean
-    ): { [K in keyof T]: boolean };
-}
 
 export type TypeItemCreator = (listItemHelper: ListItemHelper) => HTMLElement;
-
-export class ListItemSetterDetails<T = any> {
-    itemElement: HTMLElement;
-    index: number;
-    value: T;
-    oldValue: any;
-    length: number;
-    constructor(itemElement: HTMLElement, index: number, value: T, oldValue: any, length: number);
-}
 
 /* From globalOptions.d.ts */
 /**
@@ -180,18 +159,18 @@ export function bindToHtml(element: HTMLElement, reactiveItem: Atom<string | num
  * @template T
  * @param {HTMLElement} listElement
  * @param {ReactiveItem & { value: T[] }} reactiveItem
- * @param {(listItemHelper:ListItemHelper, details:ListItemSetterDetails<T>) => void} itemValueSetter
- * @param {TypeItemCreator|null} [elementItemCreator]
+ * @param {(listItemHelper:ListItemHelper, details:ListItemUpdateContext<T>) => void} onUpdateItem
+ * @param {TypeItemCreator|null} [createItem]
  * @param {BindToListOptions} [options={}]
  * @returns {()=>void}
  */
 export function bindToList<T>(listElement: HTMLElement, reactiveItem: ReactiveItem & {
     value: T[];
-}, itemValueSetter: (listItemHelper: ListItemHelper, details: ListItemSetterDetails<T>) => void, elementItemCreator?: TypeItemCreator | null, options?: BindToListOptions): () => void;
+}, onUpdateItem: (listItemHelper: ListItemHelper, details: ListItemUpdateContext<T>) => void, createItem?: TypeItemCreator | null, options?: BindToListOptions): () => void;
 /**
  * @template T
  */
-export class ListItemSetterDetails<T> {
+export class ListItemUpdateContext<T> {
     /**
      * @param {HTMLElement} itemElement
      * @param {number} index
@@ -245,9 +224,8 @@ export class ListItemHelper {
     getDiffs<T extends {
         [key: string]: any;
     }>(newObject: T, oldObject: any, customCompareFunction?: (a: any, b: any) => boolean): { [key in keyof T]: boolean; };
-    #private;
+
 }
-export type TypeItemCreator = (listItemHelper: ListItemHelper) => HTMLElement;
 
 /* From element-binders\property.d.ts */
 /**
@@ -304,6 +282,28 @@ export function bindToText(element: HTMLElement | Text, reactiveItem: Atom<strin
  * @returns {() => void} - A function to remove the abort listener (no-op if signal not provided or already aborted).
  */
 export function attachAbortSignal(signal: AbortSignal | undefined, cleanup: () => void): () => void;
+
+/* From utils\getElement.d.ts */
+/**
+ * Gets the first element matching a CSS selector and throws if not found.
+ * @template {HTMLElement} T
+ * @param {string} selector - CSS selector (e.g., '.my-class', '#my-id', '[data-test]').
+ * @param {new (...args: any[]) => T} [type] - Optional constructor for type checking.
+ * @param {Document|Element} [root=document] - Root element to search within.
+ * @returns {T} The element.
+ * @throws {Error} If element not found or type mismatch.
+ */
+export function getElement<T extends HTMLElement>(selector: string, type?: new (...args: any[]) => T, root?: Document | Element): T;
+/**
+ * Gets an element by ID and throws if not found.
+ * @template {HTMLElement} T
+ * @param {string} id - Element ID.
+ * @param {new (...args: any[]) => T} [type] - Optional constructor for type checking.
+ * @param {Document|Element} [root=document] - Root element to search within.
+ * @returns {T} The element.
+ * @throws {Error} If element not found or type mismatch.
+ */
+export function getElementById<T extends HTMLElement>(id: string, type?: new (...args: any[]) => T, root?: Document | Element): T;
 
 /* From utils\helpers.d.ts */
 /**

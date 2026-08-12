@@ -2,7 +2,7 @@
 import test from 'ava';
 import { JSDOM } from 'jsdom';
 import { bindToSelect } from '../../../src/element-binders/two-way-bindings/select.js';
-import { atom, sleep } from '@supercat1337/store2';
+import { atom, computed, sleep } from '@supercat1337/store2';
 
 test('bindToSelect updates select.value from atom', t => {
     const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
@@ -121,4 +121,24 @@ test('bindToSelect returns unsubscribe function that cleans up event listeners',
     unsub();
     _atom.value = 'other';
     t.is(select.value, 'test');
+});
+
+test('bindToSelect throws error when not given Atom', t => {
+    const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
+    const window = dom.window;
+    const document = window.document;
+    const select = document.createElement('select');
+    const option = document.createElement('option');
+    option.value = 'test';
+    select.appendChild(option);
+    document.body.append(select);
+    const atomValue = atom(0);
+    const computedValue = computed(() => atomValue.value);
+    t.throws(
+        () => {
+            bindToSelect(select, computedValue);
+        },
+        { message: /bindToSelect expects an Atom/ }
+    );
+    window.close();
 });

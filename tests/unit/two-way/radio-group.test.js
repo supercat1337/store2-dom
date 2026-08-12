@@ -2,7 +2,7 @@
 import test from 'ava';
 import { JSDOM } from 'jsdom';
 import { bindToRadioGroup } from '../../../src/element-binders/two-way-bindings/radios.js';
-import { atom } from '@supercat1337/store2';
+import { atom, computed } from '@supercat1337/store2';
 
 test('bindToRadioGroup updates radio group from atom', t => {
     const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
@@ -145,4 +145,29 @@ test('bindToRadioGroup with radios having no name returns no-op unsubscribe', t 
     unsub();
     window.close();
     t.pass();
+});
+
+test('bindToRadioGroup throws error when not given Atom', t => {
+    const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
+    const window = dom.window;
+    const document = window.document;
+    const radios = [];
+    for (let i = 0; i < 2; i++) {
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'group';
+        radio.value = String(i);
+        document.body.append(radio);
+        radios.push(radio);
+    }
+    const atomValue = atom(0);
+    const computedValue = computed(() => atomValue.value);
+
+    t.throws(
+        () => {
+            bindToRadioGroup(radios, computedValue);
+        },
+        { message: /bindToRadioGroup expects an Atom/ }
+    );
+    window.close();
 });

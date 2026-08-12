@@ -4,6 +4,7 @@ import path from 'path';
 const tempDir = './dist/types-temp/src';
 const outputFile = './dist/types.d.ts';
 const headerFile = './src/types.d.ts';
+const esmFile = './dist/store2-dom.esm.js';
 
 function bundleTypes() {
     // 1. Читаем заголовок (ваши интерфейсы и declare global)
@@ -43,10 +44,18 @@ function bundleTypes() {
     });
 
     // 4. Финальная чистка: убираем множественные пустые строки
+    finalContent = finalContent.replace(/^\s*#private;/gm, '');
     finalContent = finalContent.replace(/\n{3,}/g, '\n\n');
 
     fs.writeFileSync(outputFile, finalContent);
     console.log(`Bundle created: ${outputFile}`);
 }
 
+function fixEsm() {
+    let content = fs.readFileSync(esmFile, { encoding: 'utf8' });
+    content = content.replace(/(\.\.\/)+types\.d\.ts/g, './types.d.ts');
+    fs.writeFileSync(esmFile, content);
+}
+
 bundleTypes();
+fixEsm();

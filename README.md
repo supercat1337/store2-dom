@@ -145,6 +145,8 @@ This pattern gives you a clear **unidirectional data flow**: state → DOM via c
 | `bindToSelect(select, reactive, options?)`              | Syncs a single‑select with a string atom.                                   |
 | `bindToSelectMultiple(select, collection, options?)`    | Syncs a multi‑select with a collection of strings.                          |
 
+> ⚠️ **Important:** Two-way bindings expect an `Atom` for single values and a `Collection` for multiple values. Passing a `Computed` will throw a `TypeError`. This ensures correct data flow and prevents accidental writes to read-only values.
+
 ---
 
 ## List Binding (`bindToList`)
@@ -160,18 +162,21 @@ const todos = collection([{ id: 1, text: 'Learn store2' }]);
 bindToList(
     document.getElementById('todo-list'),
     todos,
+    // onUpdateItem – called on item creation and every update
     (helper, { itemElement, value, oldValue }) => {
         const span = itemElement.querySelector('span');
         if (helper.getDiffs({ text: value }, { text: oldValue }).text) {
             span.textContent = value.text;
         }
-    }
+    },
+    // createItem – optional custom element factory (uses first child as template if omitted)
+    null
 );
 ```
 
-- `itemSetter` is called for each item when it changes.
-- `helper` provides `getDiffs`, `getTemplate`, `getListItemIndex`, etc.
-- Supports custom `itemCreator` for advanced templating.
+- `onUpdateItem: (helper: ListItemHelper, details: ListItemUpdateContext<T>) => void` – called when an item is created or updated. Use `helper.getDiffs()` for partial updates.
+- `createItem?: (helper: ListItemHelper) => HTMLElement` – optional function to create a new DOM element. If not provided, the first child of the container is cloned as a template.
+- Returns an `unsubscribe` function.
 
 ---
 
@@ -282,8 +287,44 @@ For better integration, consider using the `signal` option with an `AbortControl
 
 ## Utilities
 
-- `getDiffs(newObj, oldObj, compareFn?)` – returns an object with `true` for changed/added properties.
-- `globalOptions` – mutate global defaults.
+### `getDiffs(newObject, oldObject, customCompareFunction?)`
+
+Returns an object with the same keys as `newObject`, value `true` if the property is new or changed.
+
+### `getElement(selector, type?, root?)`
+
+Finds the first element matching a CSS selector. Throws if not found.
+
+- `selector: string` – CSS selector.
+- `type?: new (...args: any[]) => T` – optional constructor for type checking.
+- `root?: Document | Element` – root element to search within (default `document`).
+
+```js
+import { getElement } from '@supercat1337/store2-dom';
+
+const input = getElement('#my-input', HTMLInputElement);
+const span = getElement('.my-span', HTMLSpanElement, container);
+```
+
+### `getElementById(id, type?, root?)`
+
+Same as `getElement`, but by ID.
+
+```js
+import { getElementById } from '@supercat1337/store2-dom';
+
+const div = getElementById('my-div', HTMLDivElement);
+```
+
+### `globalOptions`
+
+Global defaults object that you can mutate:
+
+```js
+import { globalOptions } from '@supercat1337/store2-dom';
+globalOptions.debounceTime = 100;
+globalOptions.autoDisconnect = false;
+```
 
 ---
 
@@ -295,7 +336,7 @@ The package ships with its own `.d.ts` files. Import types if needed:
 import type {
     BinderOptions,
     ListItemHelper,
-    ListItemSetterDetails,
+    ListItemUpdateContext,
 } from '@supercat1337/store2-dom';
 ```
 

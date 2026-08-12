@@ -1,6 +1,6 @@
 // @ts-check
 
-import { debounce } from '@supercat1337/store2';
+import { Atom, debounce } from '@supercat1337/store2';
 import { globalOptions } from '../../globalOptions.js';
 import { attachAbortSignal } from '../../utils/abort-helper.js';
 
@@ -12,6 +12,10 @@ import { attachAbortSignal } from '../../utils/abort-helper.js';
  * @returns {()=>void}
  */
 export function bindToInput(element, reactiveItem, options = {}) {
+    if (!(reactiveItem instanceof Atom)) {
+        throw new TypeError('bindToInput expects an Atom<string|number>');
+    }
+
     const _options = Object.assign({}, globalOptions, { lazy: false }, options);
     const { debounceTime, lazy, autoDisconnect, event: eventName, signal } = _options;
 
@@ -49,7 +53,7 @@ export function bindToInput(element, reactiveItem, options = {}) {
     setter(reactiveItem.value);
 
     const storeUnsubscribe = reactiveItem.subscribe(
-        details => {
+        _details => {
             if (autoDisconnect && !element.isConnected) {
                 cleanup();
                 return;

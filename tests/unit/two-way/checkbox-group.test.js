@@ -2,7 +2,7 @@
 import test from 'ava';
 import { JSDOM } from 'jsdom';
 import { bindToCheckboxGroup } from '../../../src/element-binders/checkboxes-values.js';
-import { collection } from '@supercat1337/store2';
+import { atom, collection } from '@supercat1337/store2';
 
 test('bindToCheckboxGroup updates checkbox group from collection', t => {
     const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
@@ -129,4 +129,26 @@ test('bindToCheckboxGroup with empty array returns no-op unsubscribe', t => {
     t.is(typeof unsub, 'function');
     unsub();
     t.pass();
+});
+
+test('bindToCheckboxGroup throws error when not given Collection', t => {
+    const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
+    const window = dom.window;
+    const document = window.document;
+    const checkboxes = [];
+    for (let i = 0; i < 2; i++) {
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = String(i);
+        document.body.append(cb);
+        checkboxes.push(cb);
+    }
+    const atomValue = atom('not collection');
+    t.throws(
+        () => {
+            bindToCheckboxGroup(checkboxes, atomValue);
+        },
+        { message: /bindToCheckboxGroup expects a Collection/ }
+    );
+    window.close();
 });
