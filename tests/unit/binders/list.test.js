@@ -4,7 +4,7 @@ import { JSDOM } from 'jsdom';
 import { bindToList, ListItemHelper, ListItemUpdateContext, getDiffs } from '../../../src/index.js';
 import { collection, sleep } from '@supercat1337/store2';
 
-test('bindToList with custom elementItemCreator (no template)', async t => {
+test('bindToList with custom createItem (no template)', async t => {
     const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
     const window = dom.window;
     const document = window.document;
@@ -152,7 +152,7 @@ test('bindToList with template and custom element creator (init function)', t =>
     t.true(clicked);
 });
 
-test('bindToList throws error when no template and no elementItemCreator', t => {
+test('bindToList throws error when no template and no createItem', t => {
     const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
     const window = dom.window;
     const document = window.document;
@@ -164,7 +164,7 @@ test('bindToList throws error when no template and no elementItemCreator', t => 
         () => {
             bindToList(container, _collection, () => {});
         },
-        { message: /elementItemCreator or template is not set/ }
+        { message: /createItem or template is not set/ }
     );
     window.close(); // в этом тесте нет подписки, просто закрываем окно
 });

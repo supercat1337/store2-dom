@@ -10,37 +10,15 @@
     <body>
         <div class="container">
             <h1>✅ Todo App</h1>
-            <p>Reactive todo list built with <code>store2-dom</code>.</p>
-
-            <!-- Форма добавления -->
-            <div class="todo-form">
-                <input type="text" id="new-todo-input" placeholder="What needs to be done?" />
-                <button id="add-todo-btn">Add</button>
+            <p>Choose implementation:</p>
+            <div class="version-switcher">
+                <button id="btn-computed" class="active">Computed version</button>
+                <button id="btn-reactive">Reactive (optimized) version</button>
+                <button id="btn-deep">Deep version</button>
             </div>
 
-            <!-- Фильтры -->
-            <div class="filters">
-                <button data-filter="all" class="active">All</button>
-                <button data-filter="active">Active</button>
-                <button data-filter="completed">Completed</button>
-            </div>
-
-            <!-- Список задач -->
-            <ul id="todo-list">
-                <!-- Template: первый <li> будет клонироваться для каждой задачи -->
-                <li>
-                    <input type="checkbox" class="todo-checkbox" />
-                    <span class="todo-text"></span>
-                    <span class="todo-id" style="color: #999; font-size: 0.8rem"></span>
-                    <button class="todo-delete">✕</button>
-                </li>
-            </ul>
-
-            <!-- Статистика и управление -->
-            <div class="todo-footer">
-                <span class="todo-stats" id="todo-stats">Total: 0 | Active: 0 | Done: 0</span>
-                <button id="clear-completed-btn" class="secondary">Clear Completed</button>
-            </div>
+            <!-- The app container – will be populated by the selected script -->
+            <div id="app-root"></div>
 
             <p><a href="../../index.html">← Back to Demos</a></p>
         </div>
@@ -49,10 +27,54 @@
             {
                 "imports": {
                     "@supercat1337/store2": "../../../node_modules/@supercat1337/store2/dist/store2.esm.bundle.js",
-                    "@supercat1337/store2-dom": "../../../src/index.js"
+                    "@supercat1337/store2-deep": "../../../node_modules/@supercat1337/store2-deep/dist/store2-deep.esm.js",
+                    "@supercat1337/store2-dom": "../../../dist/store2-dom.esm.js"
                 }
             }
         </script>
-        <script type="module" src="main.js"></script>
+        <script type="module">
+            import { renderComputed } from './main-computed.js';
+            import { renderReactive } from './main-reactive.js';
+            import { renderDeep } from './main-deep.js';
+
+            const appRoot = document.getElementById('app-root');
+            let currentRender = renderComputed;
+
+            function render() {
+                appRoot.innerHTML = '';
+                const app = currentRender();
+                appRoot.appendChild(app);
+            }
+
+            document.getElementById('btn-computed').addEventListener('click', () => {
+                document
+                    .querySelectorAll('.version-switcher button')
+                    .forEach(b => b.classList.remove('active'));
+                document.getElementById('btn-computed').classList.add('active');
+                currentRender = renderComputed;
+                render();
+            });
+
+            document.getElementById('btn-reactive').addEventListener('click', () => {
+                document
+                    .querySelectorAll('.version-switcher button')
+                    .forEach(b => b.classList.remove('active'));
+                document.getElementById('btn-reactive').classList.add('active');
+                currentRender = renderReactive;
+                render();
+            });
+
+            document.getElementById('btn-deep').addEventListener('click', () => {
+                document
+                    .querySelectorAll('.version-switcher button')
+                    .forEach(b => b.classList.remove('active'));
+                document.getElementById('btn-deep').classList.add('active');
+                currentRender = renderDeep;
+                render();
+            });
+
+            // Initial render
+            render();
+        </script>
     </body>
 </html>

@@ -38,6 +38,13 @@ export interface ShowBindingOptions extends BinderOptions {
 
 export interface BindToListOptions extends BinderOptions {
     autoDisconnect?: boolean;
+    /**
+     * Optional function or property name to generate a stable key for each item.
+     * - If a string is provided, it is used as the property name (e.g., 'id').
+     * - If a function is provided, it is called with (value, index) and should return a string or number.
+     * The key is stored as `data-key` on each item element and is also available in ListItemUpdateContext.key.
+     */
+    getKey?: string | ((value: any, index: number) => string | number);
 }
 
 // ========== List helpers ==========

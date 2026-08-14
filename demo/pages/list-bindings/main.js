@@ -1,6 +1,6 @@
 // @ts-check
 
-import { autorun, collection } from '@supercat1337/store2';
+import { autorun, collection, batch } from '@supercat1337/store2';
 import {
     bindToList,
     getDiffs,
@@ -46,21 +46,27 @@ bindToList(
     { debounceTime: 0 }
 );
 
-// --- Controls ---
+// --- Controls (wrapped in batch) ---
 const addItemBtn = getElementById('add-item-btn', HTMLButtonElement);
 addItemBtn.addEventListener('click', () => {
-    simpleItems.value.push(`Item ${simpleItems.value.length + 1}`);
+    batch(() => {
+        simpleItems.value.push(`Item ${simpleItems.value.length + 1}`);
+    });
 });
 
 const removeLastBtn = getElementById('remove-last-btn', HTMLButtonElement);
 removeLastBtn.addEventListener('click', () => {
-    simpleItems.value.pop();
+    batch(() => {
+        simpleItems.value.pop();
+    });
 });
 
 const resetListBtn = getElementById('reset-list-btn', HTMLButtonElement);
 resetListBtn.addEventListener('click', () => {
-    // Full replacement – triggers a complete rebuild (expected for reset)
-    simpleItems.value = ['Apple', 'Banana', 'Cherry'];
+    batch(() => {
+        // Full replacement – triggers a complete rebuild (expected for reset)
+        simpleItems.value = ['Apple', 'Banana', 'Cherry'];
+    });
 });
 
 // ============================================================
@@ -94,7 +100,9 @@ function createCustomItem(helper) {
     deleteBtn.addEventListener('click', () => {
         const index = helper.getListItemIndex(div);
         if (index === -1) return;
-        customItems.value.splice(index, 1);
+        batch(() => {
+            customItems.value.splice(index, 1);
+        });
     });
 
     return div;
@@ -114,15 +122,19 @@ function updateCustomItem(helper, details) {
 
 bindToList(customListEl, customItems, updateCustomItem, createCustomItem, { debounceTime: 0 });
 
-// --- Controls ---
+// --- Controls (wrapped in batch) ---
 const addCustomBtn = getElementById('add-custom-btn', HTMLButtonElement);
 addCustomBtn.addEventListener('click', () => {
-    customItems.value.push(`Custom ${Date.now()}`);
+    batch(() => {
+        customItems.value.push(`Custom ${Date.now()}`);
+    });
 });
 
 const removeLastCustomBtn = getElementById('remove-last-custom-btn', HTMLButtonElement);
 removeLastCustomBtn.addEventListener('click', () => {
-    customItems.value.pop();
+    batch(() => {
+        customItems.value.pop();
+    });
 });
 
 // ============================================================
@@ -158,7 +170,9 @@ function createObjectItem(helper) {
         if (index === -1) return;
         const current = objectItems.value;
         if (index >= 0 && index < current.length) {
-            objectItems.value[index] = { ...current[index], done: checkbox.checked };
+            batch(() => {
+                objectItems.value[index] = { ...current[index], done: checkbox.checked };
+            });
         }
     });
 
@@ -167,7 +181,9 @@ function createObjectItem(helper) {
         const index = helper.getListItemIndex(template);
         if (index === -1) return;
         if (index >= 0 && index < objectItems.value.length) {
-            objectItems.value.splice(index, 1);
+            batch(() => {
+                objectItems.value.splice(index, 1);
+            });
         }
     });
 
@@ -200,26 +216,36 @@ function updateObjectItem(helper, details) {
     }
 }
 
-bindToList(objectListEl, objectItems, updateObjectItem, createObjectItem, { debounceTime: 0 });
+// --- Bind with getKey for efficient reconciliation ---
+bindToList(objectListEl, objectItems, updateObjectItem, createObjectItem, {
+    debounceTime: 0,
+    getKey: 'id', // <- enables key-based DOM reuse
+});
 
-// --- Controls ---
+// --- Controls (wrapped in batch) ---
 const addObjectBtn = getElementById('add-object-btn', HTMLButtonElement);
 addObjectBtn.addEventListener('click', () => {
     const newId =
         objectItems.value.length > 0 ? Math.max(...objectItems.value.map(i => i.id)) + 1 : 1;
-    objectItems.value.push({ id: newId, name: `Task ${newId}`, done: false });
+    batch(() => {
+        objectItems.value.push({ id: newId, name: `Task ${newId}`, done: false });
+    });
 });
 
 const toggleFirstDoneBtn = getElementById('toggle-first-done', HTMLButtonElement);
 toggleFirstDoneBtn.addEventListener('click', () => {
     if (objectItems.value.length > 0) {
-        objectItems.value[0] = { ...objectItems.value[0], done: !objectItems.value[0].done };
+        batch(() => {
+            objectItems.value[0] = { ...objectItems.value[0], done: !objectItems.value[0].done };
+        });
     }
 });
 
 const updateFirstNameBtn = getElementById('update-first-name', HTMLButtonElement);
 updateFirstNameBtn.addEventListener('click', () => {
     if (objectItems.value.length > 0) {
-        objectItems.value[0] = { ...objectItems.value[0], name: `Updated-${Date.now()}` };
+        batch(() => {
+            objectItems.value[0] = { ...objectItems.value[0], name: `Updated-${Date.now()}` };
+        });
     }
 });

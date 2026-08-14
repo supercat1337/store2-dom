@@ -1,8 +1,23 @@
-/* ============================================
-   Todo App – дополнительные стили
-   ============================================ */
+.version-switcher {
+    margin-bottom: 1rem;
+    display: flex;
+    gap: 0.5rem;
+}
 
-/* --- Форма добавления --- */
+.version-switcher button {
+    padding: 0.4rem 1rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #f8f9fa;
+    cursor: pointer;
+    color: #333; 
+}
+
+.version-switcher button.active {
+    background: #0d6efd;
+    color: white;
+    border-color: #0d6efd;
+}
 .todo-form {
     display: flex;
     gap: 0.5rem;
@@ -13,11 +28,6 @@
     padding: 0.5rem 0.75rem;
     border: 1px solid #cbd5e1;
     border-radius: 0.5rem;
-    font-size: 1rem;
-}
-.todo-form input[type='text']:focus {
-    border-color: #3b82f6;
-    outline: none;
 }
 .todo-form button {
     padding: 0.5rem 1.5rem;
@@ -31,7 +41,6 @@
     background: #2563eb;
 }
 
-/* --- Список задач --- */
 #todo-list {
     list-style: none;
     padding: 0;
@@ -46,7 +55,6 @@
     background: #f8fafc;
     border-radius: 0.25rem;
     margin-bottom: 0.25rem;
-    transition: background 0.15s ease;
 }
 #todo-list li:hover {
     background: #f1f5f9;
@@ -65,17 +73,16 @@
     color: #94a3b8;
     font-size: 1.2rem;
     cursor: pointer;
-    padding: 0 0.25rem;
 }
 #todo-list li .todo-delete:hover {
     color: #ef4444;
 }
-#todo-list li .todo-id {
-    color: #94a3b8;
-    font-size: 0.75rem;
+
+#todo-list li .todo-checkbox:checked + .todo-text {
+    text-decoration: line-through;
+    color: #6c757d;
 }
 
-/* --- Фильтры --- */
 .filters {
     display: flex;
     gap: 0.5rem;
@@ -101,7 +108,6 @@
     background: #2563eb;
 }
 
-/* --- Подвал статистики --- */
 .todo-footer {
     display: flex;
     justify-content: space-between;

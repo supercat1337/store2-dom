@@ -38,6 +38,13 @@ export interface ShowBindingOptions extends BinderOptions {
 
 export interface BindToListOptions extends BinderOptions {
     autoDisconnect?: boolean;
+    /**
+     * Optional function or property name to generate a stable key for each item.
+     * - If a string is provided, it is used as the property name (e.g., 'id').
+     * - If a function is provided, it is called with (value, index) and should return a string or number.
+     * The key is stored as `data-key` on each item element and is also available in ListItemUpdateContext.key.
+     */
+    getKey?: string | ((value: any, index: number) => string | number);
 }
 
 // ========== List helpers ==========
@@ -161,12 +168,14 @@ export function bindToHtml(element: HTMLElement, reactiveItem: Atom<string | num
  * @param {ReactiveItem & { value: T[] }} reactiveItem
  * @param {(listItemHelper:ListItemHelper, details:ListItemUpdateContext<T>) => void} onUpdateItem
  * @param {TypeItemCreator|null} [createItem]
- * @param {BindToListOptions} [options={}]
+ * @param {BindToListOptions & { getKey?: string | ((value: T, index: number) => string | number) }} [options={}]
  * @returns {()=>void}
  */
 export function bindToList<T>(listElement: HTMLElement, reactiveItem: ReactiveItem & {
     value: T[];
-}, onUpdateItem: (listItemHelper: ListItemHelper, details: ListItemUpdateContext<T>) => void, createItem?: TypeItemCreator | null, options?: BindToListOptions): () => void;
+}, onUpdateItem: (listItemHelper: ListItemHelper, details: ListItemUpdateContext<T>) => void, createItem?: TypeItemCreator | null, options?: BindToListOptions & {
+    getKey?: string | ((value: T, index: number) => string | number);
+}): () => void;
 /**
  * @template T
  */
@@ -177,8 +186,9 @@ export class ListItemUpdateContext<T> {
      * @param {T} value
      * @param {any} oldValue
      * @param {number} length
+     * @param {string|number|undefined} key
      */
-    constructor(itemElement: HTMLElement, index: number, value: T, oldValue: any, length: number);
+    constructor(itemElement: HTMLElement, index: number, value: T, oldValue: any, length: number, key: string | number | undefined);
     /** @type {HTMLElement} */
     itemElement: HTMLElement;
     /** @type {number} */
@@ -189,6 +199,8 @@ export class ListItemUpdateContext<T> {
     oldValue: any;
     /** @type {number} */
     length: number;
+    /** @type {string|number|undefined} */
+    key: string | number | undefined;
 }
 export class ListItemHelper {
     /**
