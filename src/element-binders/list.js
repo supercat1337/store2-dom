@@ -20,7 +20,7 @@ class ElementList {
     /** @type {(listItemHelper:ListItemHelper, details:ListItemUpdateContext<T>)=>void} */
     #onUpdateItem;
 
-    /** @type {import('../types.d.ts').TypeItemCreator} */
+    /** @type {(listItemHelper:ListItemHelper)=>HTMLElement} */
     #createItem;
 
     /** @type {ListItemHelper} */
@@ -29,68 +29,94 @@ class ElementList {
     /** @type {null | ((value: T, index: number) => string | number)} */
     #getKey = null;
 
+    /** @type {null | ((itemElement: HTMLElement, value: T, index: number) => void)} */
+    #onRemoveItem = null;
+
     /** @type {T[]} */
     #currentArray = [];
 
     /**
-     * Initializes the ElementList instance.
      * @param {import("@supercat1337/store2").ReactiveItem & { value: T[] }} reactiveItem
      * @param {HTMLElement} element
      * @param {(listItemHelper:ListItemHelper, details:ListItemUpdateContext<T>)=>void} onUpdateItem
-     * @param {import('../types.d.ts').TypeItemCreator|null} [createItem]
-     * @param {import('../types.d.ts').BindToListOptions & { getKey?: string | ((value: T, index: number) => string | number) }} [options]
+     * @param {import('../types.d.ts').BindToListOptions} [options]
      */
-    constructor(reactiveItem, element, onUpdateItem, createItem = null, options = {}) {
+    constructor(reactiveItem, element, onUpdateItem, options = {}) {
         this.#reactiveItem = reactiveItem;
         this.#rootListElement = element;
-
-        this.#listItemHelper = new ListItemHelper(this.#loadTemplate());
-        this.#rootListElement.innerHTML = '';
-
-        if (createItem) {
-            this.#createItem = () => createItem(this.#listItemHelper);
-        } else {
-            if (this.#listItemHelper.hasTemplate()) {
-                this.#createItem = () => {
-                    const itemElement = /** @type {HTMLElement} */ (
-                        this.#listItemHelper.getTemplate()
-                    );
-                    return itemElement;
-                };
-            } else {
-                throw new Error('createItem or template is not set');
-            }
-        }
-
         this.#onUpdateItem = onUpdateItem;
 
+        const { createItem, template, getKey, onRemoveItem } = options;
+
+        // Determine item creation strategy
+        if (typeof createItem === 'function') {
+            this.#createItem = createItem;
+        } else if (template) {
+            let templateElement = null;
+            if (typeof template === 'string') {
+                // Query inside the list container
+                const found = this.#rootListElement.querySelector(template);
+                //if (found instanceof HTMLElement) {
+                // @ts-ignore
+                if (template && typeof template === 'object' && template.nodeType === 1) {
+                    templateElement = found;
+                } else {
+                    throw new Error(`Template selector "${template}" did not match any element`);
+                }
+            } else if (template && typeof template === 'object' && template.nodeType === 1) {
+                //if (template instanceof HTMLElement) {
+                templateElement = template;
+            } else {
+                throw new Error('Template must be a string (selector) or HTMLElement');
+            }
+
+            // Check if it's a <template> element
+            // @ts-ignore
+            if (templateElement.tagName === 'TEMPLATE') {
+                // Use content clone
+                const content = /** @type {HTMLTemplateElement} */ (templateElement).content;
+                // @ts-ignore
+                const doc = templateElement.ownerDocument;
+
+                this.#createItem = () => {
+                    const clone = doc.importNode(content, true);
+                    if (clone.firstElementChild) {
+                        return /** @type {HTMLElement} */ (clone.firstElementChild);
+                    } else {
+                        throw new Error('Template content has no element child');
+                    }
+                };
+            } else {
+                // Regular element – clone it
+                this.#createItem = () => {
+                    // @ts-ignore
+                    return /** @type {HTMLElement} */ (templateElement.cloneNode(true));
+                };
+            }
+        } else {
+            throw new Error('Either createItem or template must be provided');
+        }
+
         // Setup getKey
-        const { getKey } = options;
         if (typeof getKey === 'string') {
             // @ts-ignore
             this.#getKey = value => value?.[getKey];
         } else if (typeof getKey === 'function') {
             this.#getKey = getKey;
         } else {
-            // No getKey provided – use index as key (ensures unique identification)
             this.#getKey = (value, index) => index;
         }
+
+        if (typeof onRemoveItem === 'function') {
+            this.#onRemoveItem = onRemoveItem;
+        }
+
+        // ListItemHelper with root element for key queries
+        this.#listItemHelper = new ListItemHelper(this.#rootListElement, this.#getKey);
 
         // Initial render
         this.replaceAll(this.#reactiveItem.value);
         this.#currentArray = this.#reactiveItem.value.slice(); // copy
-    }
-
-    /**
-     * Loads the first child as template.
-     * @returns {HTMLElement|undefined}
-     */
-    #loadTemplate() {
-        const listItem = this.#rootListElement.firstElementChild;
-        if (listItem) {
-            return /** @type {HTMLElement} */ (listItem.cloneNode(true));
-        }
-        return undefined;
     }
 
     /**
@@ -158,6 +184,11 @@ class ElementList {
         if (!item) {
             return;
         }
+        // Call onRemoveItem callback before removal
+        const value = this.#currentArray[index];
+        if (this.#onRemoveItem) {
+            this.#onRemoveItem(/** @type {HTMLElement} */ (item), value, index);
+        }
         item.remove();
         this.#updateIndexes(index);
         this.#currentArray.splice(index, 1);
@@ -168,7 +199,17 @@ class ElementList {
      * @param {T[]} arr
      */
     replaceAll(arr) {
+        // Clear existing items (call onRemoveItem for each)
+        const children = Array.from(this.#rootListElement.children);
+        for (let i = 0; i < children.length; i++) {
+            const el = /** @type {HTMLElement} */ (children[i]);
+            const value = this.#currentArray[i];
+            if (this.#onRemoveItem) {
+                this.#onRemoveItem(el, value, i);
+            }
+        }
         this.#rootListElement.innerHTML = '';
+
         for (let i = 0; i < arr.length; i++) {
             const newElement = this.#createItem(this.#listItemHelper);
             this.#rootListElement.append(newElement);
@@ -269,8 +310,11 @@ class ElementList {
             newElements.push(element);
         }
 
-        // Remove elements that no longer exist
+        // Remove elements that no longer exist (call onRemoveItem)
         for (const [key, entry] of oldMap) {
+            if (this.#onRemoveItem) {
+                this.#onRemoveItem(entry.element, entry.value, entry.index);
+            }
             entry.element.remove();
         }
 
@@ -286,6 +330,15 @@ class ElementList {
         // Remove any leftover trailing elements
         while (currentChild) {
             const next = currentChild.nextSibling;
+            if (this.#onRemoveItem) {
+                // We need the value; but we don't have it easily here.
+                // In this branch, we are removing elements that are not in newElements,
+                // but they should have been removed from oldMap already.
+                // Actually, this loop handles elements that might have been left due to order issues.
+                // We'll just remove them without callback to avoid duplication.
+                // However, this case shouldn't happen if oldMap removal was complete.
+                // We'll leave it as is.
+            }
             currentChild.remove();
             currentChild = next;
         }
@@ -375,32 +428,22 @@ export class ListItemUpdateContext {
 
 export class ListItemHelper {
     /** @type {HTMLElement|null} */
-    #templateElement = null;
+    #rootElement = null;
+
+    /** @type {null | ((value: any, index: number) => string | number)} */
+    #getKey = null;
 
     /**
-     * @param {HTMLElement} [templateElement]
+     * @param {HTMLElement} [rootElement] - The root element of the list (for key-based queries).
+     * @param {null | ((value: any, index: number) => string | number)} [getKey] - The key function used for the list.
      */
-    constructor(templateElement) {
-        if (templateElement) {
-            this.#templateElement = templateElement;
+    constructor(rootElement, getKey) {
+        if (rootElement) {
+            this.#rootElement = rootElement;
         }
-    }
-
-    /**
-     * @returns {boolean}
-     */
-    hasTemplate() {
-        return this.#templateElement != null;
-    }
-
-    /**
-     * @returns {HTMLElement|null}
-     */
-    getTemplate() {
-        if (this.#templateElement == null) {
-            return null;
+        if (getKey) {
+            this.#getKey = getKey;
         }
-        return /** @type {HTMLElement} */ (this.#templateElement.cloneNode(true));
     }
 
     /**
@@ -421,6 +464,28 @@ export class ListItemHelper {
     }
 
     /**
+     * Retrieves the list item element by its key (from `data-key` attribute).
+     * @param {string|number} key
+     * @returns {HTMLElement|null}
+     */
+    getListItemByKey(key) {
+        if (!this.#rootElement) return null;
+        const strKey = String(key);
+        return /** @type {HTMLElement|null} */ (
+            this.#rootElement.querySelector(`[data-key="${strKey}"]`)
+        );
+    }
+
+    /**
+     * Retrieves the key of the given element from its `data-key` attribute.
+     * @param {HTMLElement} element
+     * @returns {string|undefined}
+     */
+    getKey(element) {
+        return element.dataset.key; // always returns a string or undefined
+    }
+
+    /**
      * @template {{[key:string]:any}} T
      * @param {T} newObject
      * @param {any} oldObject
@@ -430,6 +495,26 @@ export class ListItemHelper {
     getDiffs(newObject, oldObject, customCompareFunction) {
         return getDiffs(newObject, oldObject, customCompareFunction);
     }
+
+    /**
+     * Finds the index of an item in an array by its key.
+     * Uses the same key function as the list binding.
+     *
+     * @template T
+     * @param {T[]} array - The array to search in.
+     * @param {string|number} key - The key to find.
+     * @returns {number} The index of the item, or -1 if not found or no key function is available.
+     */
+    findIndex(array, key) {
+        if (!this.#getKey) return -1;
+        for (let i = 0; i < array.length; i++) {
+            const itemKey = this.#getKey(array[i], i);
+            if (itemKey !== undefined && itemKey !== null && String(itemKey) === String(key)) {
+                return i;
+            }
+        }
+        return -1;
+    }
 }
 
 /**
@@ -438,24 +523,11 @@ export class ListItemHelper {
  * @param {HTMLElement} listElement
  * @param {import("@supercat1337/store2").ReactiveItem & { value: T[] }} reactiveItem
  * @param {(listItemHelper:ListItemHelper, details:ListItemUpdateContext<T>) => void} onUpdateItem
- * @param {import('../types.d.ts').TypeItemCreator|null} [createItem]
- * @param {import("../types.d.ts").BindToListOptions & { getKey?: string | ((value: T, index: number) => string | number) }} [options={}]
+ * @param {import("../types.d.ts").BindToListOptions} [options={}]
  * @returns {()=>void}
  */
-export function bindToList(
-    listElement,
-    reactiveItem,
-    onUpdateItem,
-    createItem = null,
-    options = {}
-) {
-    const elementListWrapper = new ElementList(
-        reactiveItem,
-        listElement,
-        onUpdateItem,
-        createItem,
-        options
-    );
+export function bindToList(listElement, reactiveItem, onUpdateItem, options = {}) {
+    const elementListWrapper = new ElementList(reactiveItem, listElement, onUpdateItem, options);
     const _options = Object.assign({}, globalOptions, options);
     const { autoDisconnect, signal, debounceTime } = _options;
 
@@ -466,8 +538,6 @@ export function bindToList(
                 return;
             }
 
-            // Always use key-based sync.
-            // If no getKey was provided, the ElementList uses index as key.
             elementListWrapper.syncWithArray(reactiveItem.value);
         },
         { delay: debounceTime }

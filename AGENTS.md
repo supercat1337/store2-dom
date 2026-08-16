@@ -3,6 +3,8 @@
 **DOM binding utilities for `@supercat1337/store2`**  
 ~13 KB (core) + utilities, depends on `@supercat1337/store2`, auto‑cleanup, custom events, full TypeScript support via JSDoc.
 
+> 📖 For user‑friendly documentation, see [README.md](./README.md).
+
 ---
 
 ## Table of Contents
@@ -164,26 +166,32 @@ All two‑way bindings return an `Unsubscriber` function that removes event list
 
 ## List Binding (`bindToList`)
 
-### `bindToList(container, reactiveItem, onUpdateItem, createItem?, options?)`
+**Signature:**  
+`bindToList(container, reactiveItem, onUpdateItem, options?)`
 
-- `container: HTMLElement` – the element that will contain the list items.
-- `reactiveItem: Collection<T> | Computed<T[]>` – reactive array (must have a `.value` property).
-- `onUpdateItem: (helper: ListItemHelper, details: ListItemUpdateContext<T>) => void` – called for each item when it is created or updated. Use `helper.getDiffs()` to apply minimal DOM changes.
-- `createItem?: (helper: ListItemHelper) => HTMLElement` – optional custom element factory. If not provided, the first child of `container` is cloned as a template.
-- `options: { debounceTime?, autoDisconnect?, signal? }`
+- `container: HTMLElement` – container for list items.
+- `reactiveItem: Collection<T> | Computed<T[]>` – reactive array.
+- `onUpdateItem: (helper: ListItemHelper, details: ListItemUpdateContext<T>) => void` – called on creation and update.
+- `options: { template?, createItem?, getKey?, onRemoveItem?, debounceTime?, autoDisconnect?, signal? }`
 
-**How it works:**
+**Options:**
 
-- When the reactive array changes, `bindToList` updates the DOM minimally.
-- For a single `set` event on an index, `onUpdateItem` is called with the new value and the existing DOM element.
-- For `add`/`remove` operations (e.g., `push`, `pop`, `splice`), elements are inserted or removed and their `item-index` attributes are updated.
-- Full array replacement (e.g., `collection.value = [...]`) triggers a complete rebuild.
-- `createItem` is used to generate new DOM nodes when needed.
+- `template: HTMLElement | HTMLTemplateElement` – explicit template (cloned for each item). Required if `createItem` is not provided.
+- `createItem: (helper: ListItemHelper) => HTMLElement` – custom element factory. Required if `template` is not provided.
+- `getKey: string | ((value, index) => string | number)` – generates a stable key for each item, stored as `data-key`. Enables key‑based reconciliation.
+- `onRemoveItem: (itemElement, value, index) => void` – called before an item is removed.
+- `debounceTime`, `autoDisconnect`, `signal` – standard options.
 
-**Performance considerations:**
+**`ListItemHelper` methods:**
 
-- Prefer mutation methods (`push`, `pop`, `splice`, index assignment) over full array reassignment to avoid full rebuilds.
-- Use `helper.getDiffs()` inside `onUpdateItem` to update only changed properties.
+| Method                            | Description                                                                  |
+| --------------------------------- | ---------------------------------------------------------------------------- |
+| `getListItemIndex(element)`       | Returns the index of the item element (from `item-index` attribute).         |
+| `getListItem(element, attrName?)` | Finds the parent list item (by `item-index` or custom attribute).            |
+| `getKey(element)`                 | Returns the key from `data-key` attribute (as string or `undefined`).        |
+| `getListItemByKey(key)`           | Finds the item element by its key.                                           |
+| `findIndex(array, key)`           | Finds the index of an item in the array by its key (uses `getKey` function). |
+| `getDiffs(newObj, oldObj, cmp?)`  | Returns an object with `true` for changed properties.                        |
 
 ---
 
@@ -269,13 +277,13 @@ import type {
     - DOM is **not** recreated, only mutated in place.
 
 - **`eventType === 'add'`** (items inserted at a specific index):
-    - Creates new DOM elements using `itemCreator` (or cloning the template from the first child).
+    - Creates new DOM elements using the provided `createItem` or `template` (cloned).
     - Inserts them at the correct position in the container.
     - Updates the internal map and index references.
 
 - **`eventType === 'remove'`** (items removed at a specific index):
     - Removes the corresponding DOM element from the container.
-    - Cleans up any subscriptions related to that item (if the item itself is reactive, though not typical).
+    - Calls `onRemoveItem` (if provided) before removal.
     - Updates the internal map and reindexes subsequent elements.
 
 - **`eventType === 'replace'`** (the entire collection was reassigned with a new array):
@@ -284,10 +292,11 @@ import type {
 
 **Performance considerations:**
 
-- `bindToList` uses a **simple diff** strategy based on index and the `getDiffs` helper. It does not use a virtual DOM; instead, it relies on the developer's `onUpdateItem` to efficiently update DOM nodes.
+- `bindToList` uses a **key‑based reconciliation** when `getKey` is provided. This allows reusing DOM elements across array mutations (even when items change order).
 - For large collections, prefer using collection mutation methods (`push`, `pop`, `splice`, `setItem`) over full array reassignment to avoid full rerenders.
 
 ---
+
 ## 10. Working with `deepReactive` (from `@supercat1337/store2-deep`)
 
 When using `store2-dom` together with `deepReactive`, follow this pattern to avoid confusion:
@@ -318,7 +327,7 @@ const jsonComputed = computed(() => JSON.stringify(state, null, 2));
 bindToText(pre, jsonComputed);
 ```
 
-**Important:** `bindToInput` expects an `Atom` with a setter, not a `computed`. For `computed` (which is read‑only), you must use `bindToProperty` (or `bindToText`) and handle the reverse sync manually. This is intentional — it keeps the data flow explicit and avoids accidental writes.
+**Important:** `bindToInput` expects an `Atom` with a setter, not a `computed`. For `computed` (which is read‑only), you must use `bindToProperty` (or `bindToText`) and handle the reverse sync manually. This is intentional – it keeps the data flow explicit and avoids accidental writes.
 
 **Why this works:**
 
@@ -330,7 +339,6 @@ bindToText(pre, jsonComputed);
 This approach is recommended for all projects that use `deepReactive` with DOM bindings. It is clean, predictable, and avoids creating extra reactive items.
 
 ---
-
 
 ## 11. Common Pitfalls for AI-Generated Code
 
@@ -399,24 +407,39 @@ const dangerCheck = document.querySelector('#danger');
 bindToCssClass(document.querySelector('.value'), dangerCheck, 'text-danger');
 ```
 
-### Todo list
+### Todo list (with explicit template)
+
+```html
+<template id="todo-item-template">
+    <li>
+        <span class="todo-text"></span>
+        <button class="todo-delete">✕</button>
+    </li>
+</template>
+```
 
 ```javascript
-const todos = collection([]);
+import { collection } from '@supercat1337/store2';
+import { bindToList } from '@supercat1337/store2-dom';
+
+const todos = collection([{ id: 1, text: 'Learn store2' }]);
 const container = document.querySelector('ul');
+const template = document.getElementById('todo-item-template');
 
 bindToList(
     container,
     todos,
     (helper, details) => {
         const li = details.itemElement;
-        const span = li.querySelector('span');
-        if (helper.getDiffs({ text: details.value }, { text: details.oldValue }).text) {
-            span.textContent = details.value.text;
-        }
+        const span = li.querySelector('.todo-text');
+        const diffs = helper.getDiffs(details.value, details.oldValue);
+        if (diffs.text) span.textContent = details.value.text;
     },
-    null,
-    { autoDisconnect: true }
+    {
+        template,
+        getKey: 'id',
+        onRemoveItem: (el, value) => console.log(`Removed: ${value.text}`),
+    }
 );
 ```
 
@@ -456,7 +479,7 @@ const userAge = atom(25);
 
 See the main store2 README for detailed guidance.
 
-> **For `deepReactive` users:** You do not need to follow the immutable update pattern — `deepReactive` allows direct mutations (`state.user.name = 'Bob'`). However, when binding to DOM, still use `computed` getters as shown above.
+> **For `deepReactive` users:** You do not need to follow the immutable update pattern – `deepReactive` allows direct mutations (`state.user.name = 'Bob'`). However, when binding to DOM, still use `computed` getters as shown above.
 
 ---
 

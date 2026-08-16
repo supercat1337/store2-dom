@@ -11,7 +11,7 @@ import {
 } from '@supercat1337/store2-dom';
 
 // ============================================================
-// 1. Simple list with DOM template (first child is cloned)
+// 1. Simple list with explicit template
 // ============================================================
 
 const simpleListEl = getElementById('simple-list', HTMLUListElement);
@@ -24,11 +24,15 @@ autorun(() => {
     simpleCountEl.textContent = `${simpleItems.value.length} items`;
 });
 
-// Bind the list – using the first <li> inside simpleListEl as the template
+// Bind the list – using a <template> element
+const simpleTemplate = document.getElementById('simple-item-template');
+if (!(simpleTemplate instanceof HTMLTemplateElement)) {
+    throw new Error('Simple template not found');
+}
+
 bindToList(
     simpleListEl,
     simpleItems,
-    // onUpdateItem – called on creation and every update
     (helper, details) => {
         const textSpan = getElement('.item-text', HTMLSpanElement, details.itemElement);
         textSpan.textContent = details.value;
@@ -42,8 +46,10 @@ bindToList(
         }
         indexSpan.textContent = String(details.index + 1);
     },
-    null, // createItem – uses template from DOM (first child)
-    { debounceTime: 0 }
+    {
+        template: simpleTemplate,
+        debounceTime: 0,
+    }
 );
 
 // --- Controls (wrapped in batch) ---
@@ -64,13 +70,12 @@ removeLastBtn.addEventListener('click', () => {
 const resetListBtn = getElementById('reset-list-btn', HTMLButtonElement);
 resetListBtn.addEventListener('click', () => {
     batch(() => {
-        // Full replacement – triggers a complete rebuild (expected for reset)
         simpleItems.value = ['Apple', 'Banana', 'Cherry'];
     });
 });
 
 // ============================================================
-// 2. Custom creator (no DOM template) – fully programmatic
+// 2. Custom creator (no template) – fully programmatic
 // ============================================================
 
 const customListEl = getElementById('custom-list', HTMLDivElement);
@@ -110,7 +115,6 @@ function createCustomItem(helper) {
 
 /**
  * onUpdateItem for custom list – updates the DOM when data changes.
- * Called on every update (including initial render).
  * @param {ListItemHelper} helper
  * @param {ListItemUpdateContext<string>} details
  */
@@ -120,7 +124,10 @@ function updateCustomItem(helper, details) {
     textSpan.textContent = details.value;
 }
 
-bindToList(customListEl, customItems, updateCustomItem, createCustomItem, { debounceTime: 0 });
+bindToList(customListEl, customItems, updateCustomItem, {
+    createItem: createCustomItem,
+    debounceTime: 0,
+});
 
 // --- Controls (wrapped in batch) ---
 const addCustomBtn = getElementById('add-custom-btn', HTMLButtonElement);
@@ -158,36 +165,43 @@ const objectItems = collection([
  * @returns {HTMLElement}
  */
 function createObjectItem(helper) {
-    const template = helper.getTemplate();
-    if (!template) throw new Error('No template');
+    // Use the explicit template
+    const templateEl = document.getElementById('object-item-template');
+    if (!(templateEl instanceof HTMLTemplateElement)) {
+        throw new Error('Object template not found');
+    }
+    const fragment = document.importNode(templateEl.content, true);
+    const li = /** @type {HTMLElement} */ (fragment.firstElementChild);
+    if (!li) throw new Error('Template has no element child');
 
-    const checkbox = getElement('.obj-done', HTMLInputElement, template);
-    const deleteBtn = getElement('.obj-delete', HTMLButtonElement, template);
+    const checkbox = getElement('.obj-done', HTMLInputElement, li);
+    const deleteBtn = getElement('.obj-delete', HTMLButtonElement, li);
 
     // Change handler – updates the done status of the item
     checkbox.addEventListener('change', () => {
-        const index = helper.getListItemIndex(template);
-        if (index === -1) return;
-        const current = objectItems.value;
-        if (index >= 0 && index < current.length) {
+        const key = helper.getKey(li);
+        if (key === undefined) return;
+        const index = helper.findIndex(objectItems.value, key);
+        if (index !== -1) {
             batch(() => {
-                objectItems.value[index] = { ...current[index], done: checkbox.checked };
+                objectItems.value[index] = { ...objectItems.value[index], done: checkbox.checked };
             });
         }
     });
 
     // Delete handler – removes the item from the collection
     deleteBtn.addEventListener('click', () => {
-        const index = helper.getListItemIndex(template);
-        if (index === -1) return;
-        if (index >= 0 && index < objectItems.value.length) {
+        const key = helper.getKey(li);
+        if (key === undefined) return;
+        const index = helper.findIndex(objectItems.value, key);
+        if (index !== -1) {
             batch(() => {
                 objectItems.value.splice(index, 1);
             });
         }
     });
 
-    return template;
+    return li;
 }
 
 /**
@@ -217,9 +231,13 @@ function updateObjectItem(helper, details) {
 }
 
 // --- Bind with getKey for efficient reconciliation ---
-bindToList(objectListEl, objectItems, updateObjectItem, createObjectItem, {
+bindToList(objectListEl, objectItems, updateObjectItem, {
+    createItem: createObjectItem,
     debounceTime: 0,
-    getKey: 'id', // <- enables key-based DOM reuse
+    getKey: 'id',
+    onRemoveItem: (el, value, index) => {
+        console.log(`Removing object item ${value.id} at index ${index}`);
+    },
 });
 
 // --- Controls (wrapped in batch) ---

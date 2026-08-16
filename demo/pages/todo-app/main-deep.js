@@ -1,14 +1,26 @@
 // @ts-check
 
 import { deepReactive } from '@supercat1337/store2-deep';
-import { collection, runInAction, atom, batch, computed } from '@supercat1337/store2';
-import { debounce } from '@supercat1337/store2'; // или из вашего пути
-import { bindToList, bindToText, getDiffs, getElement } from '@supercat1337/store2-dom';
+import { collection, runInAction, atom, batch, computed, Collection } from '@supercat1337/store2';
+import { debounce } from '@supercat1337/store2';
+import {
+    bindToList,
+    bindToText,
+    getDiffs,
+    getElement,
+    ListItemHelper,
+    ListItemUpdateContext,
+} from '@supercat1337/store2-dom';
 
 /** @typedef {{ id: number; text: string; done: boolean }} Todo */
 
 /**
  * Sets up a MutationObserver on a list element to log added/removed <li> items.
+ * Useful for debugging whether the list is rendered incrementally or fully rebuilt.
+ *
+ * @param {HTMLUListElement} listElement - The <ul> element to observe.
+ * @param {string} [logPrefix=''] - Optional prefix for console logs (e.g., '[Deep]').
+ * @returns {MutationObserver} The observer instance (can be disconnected if needed).
  */
 function setupListObserver(listElement, logPrefix = '') {
     const observer = new MutationObserver(mutations => {
@@ -51,14 +63,7 @@ export function renderDeep() {
             <button data-filter="active">Active</button>
             <button data-filter="completed">Completed</button>
         </div>
-        <ul id="todo-list">
-            <li>
-                <input type="checkbox" class="todo-checkbox" />
-                <span class="todo-text"></span>
-                <span class="todo-id" style="color:#999;font-size:0.8rem;"></span>
-                <button class="todo-delete">✕</button>
-            </li>
-        </ul>
+        <ul id="todo-list"></ul>
         <div class="todo-footer">
             <span class="todo-stats" id="todo-stats">Total: 0 | Active: 0 | Done: 0</span>
             <button id="clear-completed-btn" class="secondary">Clear Completed</button>
@@ -75,13 +80,7 @@ export function renderDeep() {
             ],
         },
         {
-            /**
-             * Callback invoked on every mutation.
-             * We use it to trigger synchronization of filteredTodos.
-             */
             onChange: (path, oldValue, newValue, target) => {
-                // Filter out changes that don't affect the todos array
-                // For simplicity, we sync on any change, but we could check path[0] === 'todos'
                 debouncedSync();
             },
         }
@@ -89,7 +88,7 @@ export function renderDeep() {
 
     const filterAtom = atom('all', { name: 'filter' });
 
-    // Separate collection for filtered view – will be synced via onChange
+    /** @type {Collection<Todo>} */
     const filteredTodos = collection([], { name: 'filteredTodos' });
 
     // --- Statistics ---
@@ -116,10 +115,7 @@ export function renderDeep() {
         });
     }
 
-    // Debounced version to group multiple mutations (e.g., within a batch)
     const debouncedSync = debounce(syncFilteredTodos, 0);
-
-    // Initial sync
     syncFilteredTodos();
 
     // --- DOM elements ---
@@ -142,13 +138,11 @@ export function renderDeep() {
             filterAtom.value = /** @type {string} */ (
                 /** @type {HTMLButtonElement} */ (btn).dataset.filter
             );
-            // Filter change also triggers sync (though onChange will catch it)
-            // but we call it explicitly to be safe
             debouncedSync();
         });
     });
 
-    // --- Add todo ---
+    // Add todo
     addBtn.addEventListener('click', () => {
         const text = newTodoInput.value.trim();
         if (!text) return;
@@ -161,26 +155,23 @@ export function renderDeep() {
         newTodoInput.value = '';
     });
 
-    // --- Clear completed ---
+    // Clear completed
     clearBtn.addEventListener('click', () => {
         batch(() => {
             state.todos = state.todos.filter(t => !t.done);
         });
     });
 
-    let createCount = 0;
     let updateCount = 0;
+    /** @type {ListItemHelper | null} */
+    let listHelper = null;
 
-    // --- List rendering ---
-    function createTodoItem(helper) {
-        createCount++;
-        console.log(`createTodoItem called (total: ${createCount})`);
-        const template = helper.getTemplate();
-        if (!template) throw new Error('No template');
-        return template;
-    }
-
+    /**
+     * @param {ListItemHelper} helper
+     * @param {ListItemUpdateContext<Todo>} context
+     */
     function updateTodoItem(helper, context) {
+        listHelper = helper;
         updateCount++;
         console.log(`updateTodoItem called for key: ${context?.value?.id} (total: ${updateCount})`);
         if (!context?.value) return;
@@ -193,51 +184,56 @@ export function renderDeep() {
 
         const diffs = getDiffs(value, oldValue || {});
         if (diffs.text) textSpan.textContent = value.text;
-
         checkbox.checked = value.done;
         li.classList.toggle('done', value.done);
-
         if (diffs.id) idSpan.textContent = String(value.id);
     }
 
-    // Bind the list to the filtered collection
-    bindToList(todoListEl, filteredTodos, updateTodoItem, createTodoItem, {
+    // --- Bind the list with template ---
+    const templateEl = document.getElementById('todo-item-template');
+    if (!(templateEl instanceof HTMLTemplateElement)) {
+        throw new Error('Template not found');
+    }
+
+    bindToList(todoListEl, filteredTodos, updateTodoItem, {
+        template: templateEl,
         getKey: 'id',
         debounceTime: 0,
+        onRemoveItem: (_itemElement, value, index) => {
+            console.log(`Removing item with key ${value.id} at index ${index}`);
+        },
     });
 
     // --- Setup MutationObserver for debugging ---
-    const observer = setupListObserver(todoListEl, '[Deep]');
+    setupListObserver(todoListEl, '[Deep]');
 
     // --- Event delegation ---
-    // Delete
     todoListEl.addEventListener('click', e => {
         const target = /** @type {HTMLElement} */ (e.target);
         if (!target.classList.contains('todo-delete')) return;
         const li = target.closest('li');
-        if (!li?.dataset.key) return;
-        const id = Number(li.dataset.key);
-        const all = state.todos;
-        const index = all.findIndex(t => t.id === id);
+        if (!li || !listHelper) return;
+        const key = listHelper.getKey(li);
+        if (key === undefined) return;
+        const index = listHelper.findIndex(state.todos, key);
         if (index !== -1) {
             batch(() => {
-                all.splice(index, 1);
+                state.todos.splice(index, 1);
             });
         }
     });
 
-    // Toggle done status
     todoListEl.addEventListener('change', e => {
         const target = /** @type {HTMLInputElement} */ (e.target);
         if (!target.classList.contains('todo-checkbox')) return;
         const li = target.closest('li');
-        if (!li?.dataset.key) return;
-        const id = Number(li.dataset.key);
-        const all = state.todos;
-        const index = all.findIndex(t => t.id === id);
+        if (!li || !listHelper) return;
+        const key = listHelper.getKey(li);
+        if (key === undefined) return;
+        const index = listHelper.findIndex(state.todos, key);
         if (index !== -1) {
             batch(() => {
-                all[index].done = target.checked;
+                state.todos[index].done = target.checked;
             });
         }
     });

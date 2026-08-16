@@ -6,13 +6,14 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Bundle Size](https://img.shields.io/bundlephobia/minzip/@supercat1337/store2-dom)](https://bundlephobia.com/package/@supercat1337/store2-dom)
 
+> 📘 For detailed technical documentation, see [AGENTS.md](./AGENTS.md).
+
 ---
 
 ## Why store2-dom?
 
 - **Declarative DOM bindings** – no more manual `addEventListener` and `textContent` updates.
 - **Automatic cleanup** – bindings unsubscribe when elements are removed from the DOM (`autoDisconnect: true` by default) using a lightweight `isConnected` check.
-- **Framework‑agnostic** – works with vanilla JS, React, Vue, or any DOM environment.
 - **Supports `AbortSignal`** – easy integration with component lifecycles.
 - **Tiny footprint** – ~13 KB core, depends only on `@supercat1337/store2`.
 
@@ -29,7 +30,6 @@ npm install @supercat1337/store2-dom
 ## Quick Start
 
 ```html
-<!-- index.html -->
 <input type="text" id="name-input" />
 <p id="greeting"></p>
 <button id="reset-btn">Reset</button>
@@ -45,63 +45,10 @@ const greeting = computed(() => `Hello, ${name.value}!`);
 bindToInput(document.getElementById('name-input'), name);
 bindToText(document.getElementById('greeting'), greeting);
 
-// Reset button – directly mutates the atom
 document.getElementById('reset-btn').addEventListener('click', () => {
     name.value = 'World';
 });
 ```
-
-Now typing in the input automatically updates the greeting paragraph — **reactive DOM binding in a few lines**.
-
----
-
-## Integration with `deepReactive` (from `@supercat1337/store2-deep`)
-
-`store2-dom` works seamlessly with deep reactive objects created via `deepReactive`. Since `deepReactive` uses per‑property atoms internally, you can read a nested property using a **read‑only `computed`** and bind it to the DOM.
-
-**Recommended pattern:**
-
-1. Create a `computed` getter that reads the nested property.
-2. Use **`bindToProperty`** or **`bindToText`** to update the DOM when the computed changes.
-3. For user input, listen to DOM events and mutate the proxy directly — no need to create separate atoms.
-
-```js
-import { deepReactive } from '@supercat1337/store2-deep';
-import { bindToProperty } from '@supercat1337/store2-dom';
-import { computed } from '@supercat1337/store2';
-
-const state = deepReactive({ user: { name: 'Alice', age: 30 } });
-
-// Read‑only computed for a nested property
-const nameComputed = computed(() => state.user.name);
-
-// Bind to input.value – updates DOM when state changes
-const input = document.getElementById('name');
-bindToProperty(input, nameComputed, 'value');
-
-// Two‑way: write back to the proxy on user input
-input.addEventListener('input', () => {
-    state.user.name = input.value;
-});
-```
-
-**Why not `bindToInput`?**  
-`bindToInput` expects an `Atom<string|number>` with a setter. `computed` is read‑only and has no setter, so `bindToInput` cannot update it. Use `bindToProperty` for read‑only computed values and handle the reverse direction via DOM events.
-
-> 💡 **Alternative:** If you prefer a more declarative style, you can use `reaction` to manually update the DOM:
->
-> ```js
-> reaction(
->     () => state.user.name,
->     name => {
->         input.value = name;
->     }
-> );
-> ```
->
-> However, `bindToProperty` handles unsubscription automatically (via `autoDisconnect` and `signal`) and is cleaner for simple property bindings.
-
-This pattern gives you a clear **unidirectional data flow**: state → DOM via computed, DOM → state via events.
 
 ---
 
@@ -145,13 +92,13 @@ This pattern gives you a clear **unidirectional data flow**: state → DOM via c
 | `bindToSelect(select, reactive, options?)`              | Syncs a single‑select with a string atom.                                   |
 | `bindToSelectMultiple(select, collection, options?)`    | Syncs a multi‑select with a collection of strings.                          |
 
-> ⚠️ **Important:** Two-way bindings expect an `Atom` for single values and a `Collection` for multiple values. Passing a `Computed` will throw a `TypeError`. This ensures correct data flow and prevents accidental writes to read-only values.
+> ⚠️ **Important:** Two-way bindings expect an `Atom` for single values and a `Collection` for multiple values. Passing a `Computed` will throw a `TypeError`.
 
 ---
 
 ## List Binding (`bindToList`)
 
-Efficiently render a reactive `Collection` into a container.
+Efficiently render a reactive array into a container.
 
 ```js
 import { collection } from '@supercat1337/store2';
@@ -159,24 +106,53 @@ import { bindToList } from '@supercat1337/store2-dom';
 
 const todos = collection([{ id: 1, text: 'Learn store2' }]);
 
+// Template defined in HTML
+const template = document.getElementById('todo-item-template');
+
 bindToList(
     document.getElementById('todo-list'),
     todos,
-    // onUpdateItem – called on item creation and every update
+    // onUpdateItem – called on creation and every update
     (helper, { itemElement, value, oldValue }) => {
         const span = itemElement.querySelector('span');
-        if (helper.getDiffs({ text: value }, { text: oldValue }).text) {
-            span.textContent = value.text;
-        }
+        const diffs = helper.getDiffs(value, oldValue);
+        if (diffs.text) span.textContent = value.text;
     },
-    // createItem – optional custom element factory (uses first child as template if omitted)
-    null
+    {
+        template, // HTMLElement or <template> element
+        getKey: 'id', // optional, enables key-based reconciliation
+        onRemoveItem: (el, value, index) => {
+            console.log(`Removing ${value.text} at ${index}`);
+        },
+    }
 );
 ```
 
-- `onUpdateItem: (helper: ListItemHelper, details: ListItemUpdateContext<T>) => void` – called when an item is created or updated. Use `helper.getDiffs()` for partial updates.
-- `createItem?: (helper: ListItemHelper) => HTMLElement` – optional function to create a new DOM element. If not provided, the first child of the container is cloned as a template.
-- Returns an `unsubscribe` function.
+**Signature:**  
+`bindToList(container, reactiveItem, onUpdateItem, options?)`
+
+**Options:**
+
+| Option           | Type                                             | Description                                                                                    |
+| ---------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `template`       | `HTMLElement \| HTMLTemplateElement`             | Explicit template (cloned for each item). Required if `createItem` is not provided.            |
+| `createItem`     | `(helper: ListItemHelper) => HTMLElement`        | Custom element factory. Required if `template` is not provided.                                |
+| `getKey`         | `string \| ((value, index) => string \| number)` | Generates a stable key for each item (stored as `data-key`). Enables key-based reconciliation. |
+| `onRemoveItem`   | `(itemElement, value, index) => void`            | Called before an item is removed. Useful for cleanup.                                          |
+| `debounceTime`   | `number`                                         | Debounce time (ms) for store subscription.                                                     |
+| `autoDisconnect` | `boolean`                                        | Auto‑unbind when container is removed from DOM.                                                |
+| `signal`         | `AbortSignal`                                    | Unbind when signal aborts.                                                                     |
+
+**`ListItemHelper` methods:**
+
+| Method                            | Description                                                                  |
+| --------------------------------- | ---------------------------------------------------------------------------- |
+| `getListItemIndex(element)`       | Returns the index of the item element (from `item-index` attribute).         |
+| `getListItem(element, attrName?)` | Finds the parent list item (by `item-index` or custom attribute).            |
+| `getKey(element)`                 | Returns the key from `data-key` attribute (as string or `undefined`).        |
+| `getListItemByKey(key)`           | Finds the item element by its key.                                           |
+| `findIndex(array, key)`           | Finds the index of an item in the array by its key (uses `getKey` function). |
+| `getDiffs(newObj, oldObj, cmp?)`  | Returns an object with `true` for changed properties.                        |
 
 ---
 
@@ -184,15 +160,15 @@ bindToList(
 
 All bindings accept an `options` object:
 
-| Option                   | Type        | Default     | Description                                                                        |
-| ------------------------ | ----------- | ----------- | ---------------------------------------------------------------------------------- |
-| `debounceTime`           | number      | `0`         | Debounce time (ms) for store subscription.                                         |
-| `autoDisconnect`         | boolean     | `true`      | Automatically unbind when element is removed from DOM (checked via `isConnected`). |
-| `signal`                 | AbortSignal | `undefined` | Unbind when signal is aborted.                                                     |
-| `event` (two‑way)        | string      | depends     | Custom event name for DOM updates.                                                 |
-| `lazy` (input)           | boolean     | `false`     | If `true`, listens to `change` instead of `input`.                                 |
-| `invert` (class toggles) | boolean     | `false`     | If `true`, class is applied when value is `false`.                                 |
-| `hideClassName` (show)   | string      | `'d-none'`  | CSS class used to hide the element.                                                |
+| Option                   | Type        | Default     | Description                                            |
+| ------------------------ | ----------- | ----------- | ------------------------------------------------------ |
+| `debounceTime`           | number      | `0`         | Debounce time (ms) for store subscription.             |
+| `autoDisconnect`         | boolean     | `true`      | Automatically unbind when element is removed from DOM. |
+| `signal`                 | AbortSignal | `undefined` | Unbind when signal is aborted.                         |
+| `event` (two‑way)        | string      | depends     | Custom event name for DOM updates.                     |
+| `lazy` (input)           | boolean     | `false`     | If `true`, listens to `change` instead of `input`.     |
+| `invert` (class toggles) | boolean     | `false`     | If `true`, class is applied when value is `false`.     |
+| `hideClassName` (show)   | string      | `'d-none'`  | CSS class used to hide the element.                    |
 
 You can change defaults globally:
 
@@ -204,13 +180,34 @@ globalOptions.autoDisconnect = false;
 
 ---
 
+## Integration with `deepReactive` (from `@supercat1337/store2-deep`)
+
+```js
+import { deepReactive } from '@supercat1337/store2-deep';
+import { bindToProperty } from '@supercat1337/store2-dom';
+import { computed } from '@supercat1337/store2';
+
+const state = deepReactive({ user: { name: 'Alice' } });
+const nameComputed = computed(() => state.user.name);
+
+const input = document.getElementById('name');
+bindToProperty(input, nameComputed, 'value'); // read‑only
+input.addEventListener('input', () => {
+    state.user.name = input.value; // write back
+});
+```
+
+> Use `bindToProperty` (not `bindToInput`) for computed values.
+
+---
+
 ## ⚠️ Important Notes / Known Limitations
 
-- **Nested mutations are not tracked** – always use immutable updates or `makeAutoObservable` (see [store2 docs](https://github.com/supercat1337/store2#working-with-deep-objects)).
-- **Destructuring a reactive value breaks tracking** – always use `reactive.value` directly inside bindings.
-- **`autoDisconnect` checks `element.isConnected` on each update** – if the element is removed but the reactive value never changes again, cleanup will only happen on the next update. For guaranteed cleanup, use `signal` or call the returned unsubscribe function.
-- **Two‑way bindings may cause loops** – ensure your reactive logic doesn't update the same atom in response to its own change.
-- **`bindToList` performs a full rerender on collection replacement** – if you replace the entire `collection.value` with a new array, it will rebuild the list. Use mutation methods (`push`, `setItem`, etc.) for incremental updates.
+- **Nested mutations are not tracked** – use immutable updates or `deepReactive`.
+- **Destructuring a reactive value breaks tracking** – always use `reactive.value` directly.
+- **`autoDisconnect` checks `element.isConnected` on each update** – cleanup happens on next update after removal.
+- **`bindToList` requires either `template` or `createItem`** – no implicit fallback.
+- **Full array replacement in `bindToList` triggers a rebuild** – use mutation methods for incremental updates.
 
 ---
 
@@ -223,37 +220,14 @@ import { atom } from '@supercat1337/store2';
 import { bindToInput } from '@supercat1337/store2-dom';
 import { useEffect, useRef } from 'react';
 
-// Create atom outside component to avoid recreation on each render
 const nameAtom = atom('React');
 
 function NameInput() {
     const inputRef = useRef(null);
-
     useEffect(() => {
         const unsub = bindToInput(inputRef.current, nameAtom);
         return unsub;
     }, []);
-
-    return <input ref={inputRef} />;
-}
-```
-
-Alternatively, if you need the atom to be instance‑specific, use `useRef` with lazy initialization:
-
-```jsx
-function NameInput() {
-    const inputRef = useRef(null);
-    const nameRef = useRef(null);
-
-    if (!nameRef.current) {
-        nameRef.current = atom('React');
-    }
-
-    useEffect(() => {
-        const unsub = bindToInput(inputRef.current, nameRef.current);
-        return unsub;
-    }, []);
-
     return <input ref={inputRef} />;
 }
 ```
@@ -281,56 +255,18 @@ onUnmounted(() => unsubscribe?.());
 </script>
 ```
 
-For better integration, consider using the `signal` option with an `AbortController`.
-
 ---
 
 ## Utilities
 
-### `getDiffs(newObject, oldObject, customCompareFunction?)`
-
-Returns an object with the same keys as `newObject`, value `true` if the property is new or changed.
-
-### `getElement(selector, type?, root?)`
-
-Finds the first element matching a CSS selector. Throws if not found.
-
-- `selector: string` – CSS selector.
-- `type?: new (...args: any[]) => T` – optional constructor for type checking.
-- `root?: Document | Element` – root element to search within (default `document`).
-
-```js
-import { getElement } from '@supercat1337/store2-dom';
-
-const input = getElement('#my-input', HTMLInputElement);
-const span = getElement('.my-span', HTMLSpanElement, container);
-```
-
-### `getElementById(id, type?, root?)`
-
-Same as `getElement`, but by ID.
-
-```js
-import { getElementById } from '@supercat1337/store2-dom';
-
-const div = getElementById('my-div', HTMLDivElement);
-```
-
-### `globalOptions`
-
-Global defaults object that you can mutate:
-
-```js
-import { globalOptions } from '@supercat1337/store2-dom';
-globalOptions.debounceTime = 100;
-globalOptions.autoDisconnect = false;
-```
+- `getDiffs(newObject, oldObject, customCompare?)` – diff helper.
+- `getElement(selector, type?, root?)` – find element or throw.
+- `getElementById(id, type?, root?)` – find by ID or throw.
+- `globalOptions` – global defaults object.
 
 ---
 
 ## TypeScript
-
-The package ships with its own `.d.ts` files. Import types if needed:
 
 ```typescript
 import type {

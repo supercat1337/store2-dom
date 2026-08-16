@@ -23,6 +23,16 @@
             <p><a href="../../index.html">← Back to Demos</a></p>
         </div>
 
+        <!-- Template for todo items (used by all three versions) -->
+        <template id="todo-item-template">
+            <li>
+                <input type="checkbox" class="todo-checkbox" />
+                <span class="todo-text"></span>
+                <span class="todo-id" style="color: #999; font-size: 0.8rem"></span>
+                <button class="todo-delete">✕</button>
+            </li>
+        </template>
+
         <script type="importmap">
             {
                 "imports": {

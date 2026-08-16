@@ -24,14 +24,12 @@ function setupListObserver(listElement, logPrefix = '') {
     const observer = new MutationObserver(mutations => {
         mutations.forEach(mutation => {
             if (mutation.type === 'childList') {
-                // Log added nodes
                 mutation.addedNodes.forEach(node => {
                     if (node.nodeType === 1 && node.matches('li')) {
                         const key = node.dataset.key || '(no key)';
                         console.log(`${logPrefix} Added LI: ${key}`);
                     }
                 });
-                // Log removed nodes
                 mutation.removedNodes.forEach(node => {
                     if (node.nodeType === 1 && node.matches('li')) {
                         const key = node.dataset.key || '(no key)';
@@ -43,8 +41,8 @@ function setupListObserver(listElement, logPrefix = '') {
     });
 
     observer.observe(listElement, {
-        childList: true, // Observe direct children changes
-        subtree: false, // We only care about immediate <li> children
+        childList: true,
+        subtree: false,
     });
 
     return observer;
@@ -57,7 +55,6 @@ function setupListObserver(listElement, logPrefix = '') {
 export function renderComputed() {
     const container = document.createElement('div');
 
-    // --- HTML template ---
     container.innerHTML = `
         <div class="todo-form">
             <input type="text" id="new-todo-input" placeholder="What needs to be done?" />
@@ -68,14 +65,7 @@ export function renderComputed() {
             <button data-filter="active">Active</button>
             <button data-filter="completed">Completed</button>
         </div>
-        <ul id="todo-list">
-            <li>
-                <input type="checkbox" class="todo-checkbox" />
-                <span class="todo-text"></span>
-                <span class="todo-id" style="color:#999;font-size:0.8rem;"></span>
-                <button class="todo-delete">✕</button>
-            </li>
-        </ul>
+        <ul id="todo-list"></ul>
         <div class="todo-footer">
             <span class="todo-stats" id="todo-stats">Total: 0 | Active: 0 | Done: 0</span>
             <button id="clear-completed-btn" class="secondary">Clear Completed</button>
@@ -150,28 +140,16 @@ export function renderComputed() {
         });
     });
 
-    let createCount = 0;
     let updateCount = 0;
-
-    // --- List rendering ---
-    /**
-     * @param {ListItemHelper} helper
-     * @returns {HTMLElement}
-     */
-    function createTodoItem(helper) {
-        createCount++;
-        console.log(`createTodoItem called (total: ${createCount})`);
-        const template = helper.getTemplate();
-        if (!template) throw new Error('No template');
-        return template;
-    }
+    /** @type {ListItemHelper | null} */
+    let listHelper = null;
 
     /**
      * @param {ListItemHelper} helper
      * @param {ListItemUpdateContext<Todo>} context
-     * @returns
      */
     function updateTodoItem(helper, context) {
+        listHelper = helper; // store for use in event handlers
         updateCount++;
         console.log(`updateTodoItem called for key: ${context?.value?.id} (total: ${updateCount})`);
         if (!context?.value) return;
@@ -184,44 +162,53 @@ export function renderComputed() {
 
         const diffs = getDiffs(value, oldValue || {});
         if (diffs.text) textSpan.textContent = value.text;
-
         checkbox.checked = value.done;
         li.classList.toggle('done', value.done);
-
         if (diffs.id) idSpan.textContent = String(value.id);
     }
 
-    bindToList(todoListEl, filteredTodos, updateTodoItem, createTodoItem, {
+    // --- Bind the list with template ---
+    const templateEl = document.getElementById('todo-item-template');
+    if (!(templateEl instanceof HTMLTemplateElement)) {
+        throw new Error('Template not found');
+    }
+
+    bindToList(todoListEl, filteredTodos, updateTodoItem, {
+        template: templateEl,
         getKey: 'id',
         debounceTime: 0,
+        onRemoveItem: (_itemElement, value, index) => {
+            console.log(`Removing item with key ${value.id} at index ${index}`);
+        },
     });
 
     // --- Setup MutationObserver for debugging ---
-    const observer = setupListObserver(todoListEl, '[Computed]');
-    // Optional: store observer in window for manual control
-    // window.computedObserver = observer;
+    setupListObserver(todoListEl, '[Computed]');
 
     // --- Event delegation ---
     todoListEl.addEventListener('click', e => {
         const target = /** @type {HTMLElement} */ (e.target);
         if (!target.classList.contains('todo-delete')) return;
         const li = target.closest('li');
-        if (!li?.dataset.key) return;
-        const id = Number(li.dataset.key);
-        const index = todos.value.findIndex(t => t.id === id);
-        if (index !== -1)
+        if (!li || !listHelper) return;
+        const key = listHelper.getKey(li);
+        if (key === undefined) return;
+        const index = listHelper.findIndex(todos.value, key);
+        if (index !== -1) {
             batch(() => {
                 todos.value.splice(index, 1);
             });
+        }
     });
 
     todoListEl.addEventListener('change', e => {
         const target = /** @type {HTMLInputElement} */ (e.target);
         if (!target.classList.contains('todo-checkbox')) return;
         const li = target.closest('li');
-        if (!li?.dataset.key) return;
-        const id = Number(li.dataset.key);
-        const index = todos.value.findIndex(t => t.id === id);
+        if (!li || !listHelper) return;
+        const key = listHelper.getKey(li);
+        if (key === undefined) return;
+        const index = listHelper.findIndex(todos.value, key);
         if (index !== -1) {
             batch(() => {
                 todos.value[index] = { ...todos.value[index], done: target.checked };

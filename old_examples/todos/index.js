@@ -112,8 +112,14 @@ function onUpdateItem(helper, details) {
  * @returns {HTMLElement}
  */
 function createItem(helper) {
-    const itemElement = helper.getTemplate();
-    if (!itemElement) throw new Error('No template found');
+    // Use the explicit template
+    const templateEl = document.getElementById('todo-item-template');
+    if (!(templateEl instanceof HTMLTemplateElement)) {
+        throw new Error('Template not found');
+    }
+    const fragment = document.importNode(templateEl.content, true);
+    const itemElement = /** @type {HTMLElement} */ (fragment.firstElementChild);
+    if (!itemElement) throw new Error('Template has no element child');
 
     const deleteBtn = /** @type {HTMLButtonElement} */ (
         itemElement.querySelector('[ref="delete_button"]')
@@ -122,23 +128,27 @@ function createItem(helper) {
         itemElement.querySelector('[ref="checkbox"]')
     );
 
+    // Delete handler – uses helper.getKey to get the task_id as a string
     deleteBtn.addEventListener('click', () => {
-        const index = helper.getListItemIndex(itemElement);
-        if (index === -1) return;
-
-        const task = todos.value[index];
-        if (task) {
-            tasks_service.delete(task.task_id);
-            todos.value.splice(index, 1);
+        const key = helper.getKey(itemElement);
+        if (key === undefined) return;
+        const index = helper.findIndex(todos.value, key);
+        if (index !== -1) {
+            const task = todos.value[index];
+            if (task) {
+                tasks_service.delete(task.task_id);
+                todos.value.splice(index, 1);
+            }
         }
     });
 
+    // Change handler – uses helper.getKey
     checkbox.addEventListener('change', async () => {
-        const index = helper.getListItemIndex(itemElement);
-        if (index === -1) return;
-
-        const current = todos.value[index];
-        if (current) {
+        const key = helper.getKey(itemElement);
+        if (key === undefined) return;
+        const index = helper.findIndex(todos.value, key);
+        if (index !== -1) {
+            const current = todos.value[index];
             const updated = { ...current, done: checkbox.checked };
             todos.value[index] = updated;
             await tasks_service.update(updated);
@@ -160,4 +170,12 @@ bindToDisabled(addTodoInput, isFilterActive);
 // Load initial data and bind the list
 todos.value = await tasks_service.requestData();
 
-bindToList(rootList, todos, onUpdateItem, createItem, { debounceTime: 0 });
+// Bind the list with explicit template and getKey
+bindToList(rootList, todos, onUpdateItem, {
+    createItem: createItem,
+    getKey: 'task_id', // the key is a string (task_id)
+    debounceTime: 0,
+    onRemoveItem: (el, value, index) => {
+        console.log(`Removing todo "${value.text}" (${value.task_id}) at index ${index}`);
+    },
+});

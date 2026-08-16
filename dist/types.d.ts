@@ -39,12 +39,33 @@ export interface ShowBindingOptions extends BinderOptions {
 export interface BindToListOptions extends BinderOptions {
     autoDisconnect?: boolean;
     /**
+     * Function to create a new item element.
+     * Receives a ListItemHelper instance for convenience.
+     * If provided, it takes precedence over `template`.
+     */
+    createItem?: (helper: ListItemHelper) => HTMLElement;
+    /**
+     * Template element or CSS selector for creating new items.
+     * - If an HTMLElement is given, it is cloned for each item.
+     * - If a string is given, it is used as a selector inside the list container.
+     * - If a <template> element is given, its content is cloned.
+     * - If a <template> is given as selector, it must point to a <template> element.
+     */
+    template?: HTMLElement | string;
+    /**
      * Optional function or property name to generate a stable key for each item.
      * - If a string is provided, it is used as the property name (e.g., 'id').
      * - If a function is provided, it is called with (value, index) and should return a string or number.
      * The key is stored as `data-key` on each item element and is also available in ListItemUpdateContext.key.
      */
     getKey?: string | ((value: any, index: number) => string | number);
+    /**
+     * Called before an item is removed from the list.
+     * @param itemElement - The DOM element being removed.
+     * @param value - The item value.
+     * @param index - The index of the item.
+     */
+    onRemoveItem?: (itemElement: HTMLElement, value: any, index: number) => void;
 }
 
 // ========== List helpers ==========
@@ -167,15 +188,12 @@ export function bindToHtml(element: HTMLElement, reactiveItem: Atom<string | num
  * @param {HTMLElement} listElement
  * @param {ReactiveItem & { value: T[] }} reactiveItem
  * @param {(listItemHelper:ListItemHelper, details:ListItemUpdateContext<T>) => void} onUpdateItem
- * @param {TypeItemCreator|null} [createItem]
- * @param {BindToListOptions & { getKey?: string | ((value: T, index: number) => string | number) }} [options={}]
+ * @param {BindToListOptions} [options={}]
  * @returns {()=>void}
  */
 export function bindToList<T>(listElement: HTMLElement, reactiveItem: ReactiveItem & {
     value: T[];
-}, onUpdateItem: (listItemHelper: ListItemHelper, details: ListItemUpdateContext<T>) => void, createItem?: TypeItemCreator | null, options?: BindToListOptions & {
-    getKey?: string | ((value: T, index: number) => string | number);
-}): () => void;
+}, onUpdateItem: (listItemHelper: ListItemHelper, details: ListItemUpdateContext<T>) => void, options?: BindToListOptions): () => void;
 /**
  * @template T
  */
@@ -204,17 +222,10 @@ export class ListItemUpdateContext<T> {
 }
 export class ListItemHelper {
     /**
-     * @param {HTMLElement} [templateElement]
+     * @param {HTMLElement} [rootElement] - The root element of the list (for key-based queries).
+     * @param {null | ((value: any, index: number) => string | number)} [getKey] - The key function used for the list.
      */
-    constructor(templateElement?: HTMLElement);
-    /**
-     * @returns {boolean}
-     */
-    hasTemplate(): boolean;
-    /**
-     * @returns {HTMLElement|null}
-     */
-    getTemplate(): HTMLElement | null;
+    constructor(rootElement?: HTMLElement, getKey?: null | ((value: any, index: number) => string | number));
     /**
      * @param {HTMLElement} element
      * @returns {number}
@@ -227,6 +238,18 @@ export class ListItemHelper {
      */
     getListItem(element: HTMLElement, attrName?: string): HTMLElement | null;
     /**
+     * Retrieves the list item element by its key (from `data-key` attribute).
+     * @param {string|number} key
+     * @returns {HTMLElement|null}
+     */
+    getListItemByKey(key: string | number): HTMLElement | null;
+    /**
+     * Retrieves the key of the given element from its `data-key` attribute.
+     * @param {HTMLElement} element
+     * @returns {string|undefined}
+     */
+    getKey(element: HTMLElement): string | undefined;
+    /**
      * @template {{[key:string]:any}} T
      * @param {T} newObject
      * @param {any} oldObject
@@ -236,6 +259,16 @@ export class ListItemHelper {
     getDiffs<T extends {
         [key: string]: any;
     }>(newObject: T, oldObject: any, customCompareFunction?: (a: any, b: any) => boolean): { [key in keyof T]: boolean; };
+    /**
+     * Finds the index of an item in an array by its key.
+     * Uses the same key function as the list binding.
+     *
+     * @template T
+     * @param {T[]} array - The array to search in.
+     * @param {string|number} key - The key to find.
+     * @returns {number} The index of the item, or -1 if not found or no key function is available.
+     */
+    findIndex<T>(array: T[], key: string | number): number;
 
 }
 

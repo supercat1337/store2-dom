@@ -13,35 +13,27 @@
             <p>Reactive list rendering with <code>bindToList</code>.</p>
 
             <!-- =============================== -->
-            <!-- Пример 1: простой список с шаблоном -->
+            <!-- Example 1: Simple list with template -->
             <!-- =============================== -->
             <section>
                 <h2>📋 Simple List (template)</h2>
-                <p>
-                    The first child of the container is used as a template. Items are rendered as
-                    <code>&lt;li&gt;</code> elements.
-                </p>
+                <p>Items are rendered using a <code>&lt;template&gt;</code> element.</p>
                 <div class="controls">
                     <button id="add-item-btn">Add Item</button>
                     <button id="remove-last-btn">Remove Last</button>
                     <button id="reset-list-btn">Reset</button>
                 </div>
-                <ul id="simple-list">
-                    <!-- Template: first <li> will be cloned for each item -->
-                    <li><span class="item-text"></span></li>
-                </ul>
+                <ul id="simple-list"></ul>
                 <p class="info">Items count: <span id="simple-count"></span></p>
             </section>
 
             <!-- =============================== -->
-            <!-- Пример 2: список с кастомным creator -->
+            <!-- Example 2: Custom element creator -->
             <!-- =============================== -->
             <section>
-                <h2>⚙️ Custom Element Creator (no template)</h2>
+                <h2>⚙️ Custom Element Creator</h2>
                 <p>
-                    Instead of a template, we provide a function that creates each element. Here we
-                    create a <code>&lt;div&gt;</code>
-                    with a checkbox and a delete button.
+                    Each item is created programmatically with a <code>createItem</code> function.
                 </p>
                 <div class="controls">
                     <button id="add-custom-btn">Add Item</button>
@@ -51,32 +43,38 @@
             </section>
 
             <!-- =============================== -->
-            <!-- Пример 3: список объектов с getDiffs -->
+            <!-- Example 3: Object list with getDiffs -->
             <!-- =============================== -->
             <section>
                 <h2>📊 Object Items with <code>getDiffs</code></h2>
                 <p>
                     Each item is an object <code>{ id, name, done }</code>. Only changed fields are
-                    updated in the DOM.
+                    updated.
                 </p>
                 <div class="controls">
                     <button id="toggle-first-done">Toggle First Done</button>
                     <button id="update-first-name">Update First Name</button>
                     <button id="add-object-btn">Add Item</button>
                 </div>
-                <ul id="object-list">
-                    <!-- Template: -->
-                    <li>
-                        <input type="checkbox" class="obj-done" />
-                        <span class="obj-name"></span>
-                        <span class="obj-id" style="color: #999; font-size: 0.8rem"></span>
-                        <button class="obj-delete">×</button>
-                    </li>
-                </ul>
+                <ul id="object-list"></ul>
             </section>
 
             <p><a href="../../index.html">← Back to Demos</a></p>
         </div>
+
+        <!-- Templates -->
+        <template id="simple-item-template">
+            <li><span class="item-text"></span></li>
+        </template>
+
+        <template id="object-item-template">
+            <li>
+                <input type="checkbox" class="obj-done" />
+                <span class="obj-name"></span>
+                <span class="obj-id" style="color: #999; font-size: 0.8rem"></span>
+                <button class="obj-delete">×</button>
+            </li>
+        </template>
 
         <script type="importmap">
             {
